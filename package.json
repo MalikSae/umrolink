@@ -1,0 +1,39 @@
+{
+  "name": "umrolink",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "setup:db": "node scripts/setup-db.js",
+    "build": "turbo run build",
+    "test": "dotenv -e .env.test -- node check-db-url.js && dotenv -e .env.test -- pnpm dlx prisma@6.4.0 db push --accept-data-loss --force-reset --schema=prisma/schema.prisma && dotenv -e .env.test -- pnpm --filter api exec ts-node prisma/seed.ts && turbo run test",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^11.0.0",
+    "mysql2": "^3.23.2",
+    "playwright": "^1.62.1",
+    "turbo": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "overrides": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "prisma": {
+    "seed": "pnpm --filter api exec ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.4.0"
+  }
+}

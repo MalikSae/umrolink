@@ -1,0 +1,9 @@
+{
+  "extends": "@umrolink/config/tsconfig.next.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": ["src/**/*"]
+}

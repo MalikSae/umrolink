@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.test
+.env*.local
+!.env.example
+apps/web/.next/
+dist/
+apps/api/storage/uploads/
+*.log
+.turbo/
+coverage/
+scratch/

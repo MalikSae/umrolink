@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id                  String             @id @default(cuid())
+  name                String
+  subdomain           String             @unique
+  customDomain        String?            @unique
+  brandPrimaryColor   String?
+  brandSecondaryColor String?
+  brandAccentColor    String?
+  description         String?            @db.Text
+  address             String?
+  phoneNumber         String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  users               User[]
+  packages            Package[]
+  packageDepartures   PackageDeparture[]
+  agentCodeSeq        Int                @default(0)
+  agentProfiles       AgentProfile[]
+  leads               Lead[]
+  banners             Banner[]
+}
+
+enum PackageStatus {
+  draft
+  published
+}
+
+model Package {
+  id              String             @id @default(cuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  slug            String
+  name            String
+  description     String?            @db.Text
+  airline         String?
+  hotelMakkah     String?
+  hotelMadinah    String?
+  include         String?            @db.Text
+  exclude         String?            @db.Text
+  agentCommission Int?
+  status          PackageStatus      @default(draft)
+  priceQuad       Int?
+  priceTriple     Int?
+  priceDouble     Int?
+  featuredImage   String?
+  featured        Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  departures      PackageDeparture[]
+  leads           Lead[]
+
+  @@unique([tenantId, slug])
+}
+
+model PackageDeparture {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  packageId     String
+  package       Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  departureDate DateTime
+  quota         Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum UserRole {
+  super_admin
+  travel_admin
+  agent
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  tenantId     String?
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  agentProfile AgentProfile?
+}
+
+enum AgentStatus {
+  pending
+  active
+  inactive
+}
+
+model AgentProfile {
+  id        String      @id @default(cuid())
+  userId    String      @unique
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+  agentCode String?
+  phone     String
+  city      String
+  status    AgentStatus @default(pending)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  leads     Lead[]
+
+  @@unique([tenantId, agentCode])
+}
+
+enum LeadStatus {
+  draft
+  waitlist
+  confirmed
+  cancelled
+}
+
+model Lead {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id])
+
+  // Atribusi Agen
+  agentId String?
+  agent   AgentProfile? @relation(fields: [agentId], references: [id])
+
+  name   String
+  phone  String
+  status LeadStatus @default(draft)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  ctaLabel  String   @default("Lihat Selengkapnya")
+  packageId String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

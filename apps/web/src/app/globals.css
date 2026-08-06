@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@source "../../../../packages/ui/src";
+
+@theme {
+  --color-primary: #059669;
+  --color-primary-hover: #047857;
+  --color-secondary: #1E3A5F;
+  --color-accent: #0EA5A4;
+
+  --color-neutral-50: #F8FAFC;
+  --color-neutral-100: #F1F5F9;
+  --color-neutral-200: #E2E8F0;
+  --color-neutral-300: #CBD5E1;
+  --color-neutral-400: #94A3B8;
+  --color-neutral-500: #64748B;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1E293B;
+  --color-neutral-900: #0F172A;
+  --color-surface: #FFFFFF;
+
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+
+  --color-lead: #6366F1;
+
+  --color-kpi-booking: #3B82F6;
+  --color-kpi-revenue: #059669;
+  --color-kpi-commission: #8B5CF6;
+  --color-kpi-agent: #F97316;
+  --color-kpi-travel: #1E3A5F;
+  --color-kpi-pilgrim: #06B6D4;
+
+  --color-chart-1: #059669;
+  --color-chart-2: #2563EB;
+  --color-chart-3: #F59E0B;
+  --color-chart-4: #8B5CF6;
+  --color-chart-5: #06B6D4;
+
+  --color-tenant-primary: var(--tenant-primary, #059669);
+  --color-tenant-secondary: var(--tenant-secondary, #1E3A5F);
+  --color-tenant-accent: var(--tenant-accent, #0EA5A4);
+
+  --color-background: var(--color-neutral-50);
+  --color-foreground: var(--color-neutral-900);
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Hilangkan whitespace ekstra dari ikon kalender bawaan browser */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  padding: 0;
+  margin: 0;
+  margin-left: 2px;
+  opacity: 0.5;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.8;
+}
