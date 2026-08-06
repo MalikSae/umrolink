@@ -50,7 +50,7 @@ describe('Booking (e2e)', () => {
     const passwordHash = await argon2.hash('Password123!');
     const admin = await prisma.user.create({
       data: {
-        email: 'admin@tenanta.test',
+        email: 'admin@tenanta.umrolink.test',
         passwordHash,
         name: 'Admin A',
         role: 'travel_admin',
@@ -63,7 +63,7 @@ describe('Booking (e2e)', () => {
     // Create agent
     agent = await prisma.user.create({
       data: {
-        email: 'agent@tenanta.test',
+        email: 'agent@tenanta.umrolink.test',
         passwordHash,
         name: 'Agent A',
         role: 'agent',
@@ -120,7 +120,7 @@ describe('Booking (e2e)', () => {
   it('1. POST /api/public/leads - sukses create booking', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/public/leads')
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .send({
         departureId: departure1.id,
         name: 'John Doe',
@@ -135,7 +135,7 @@ describe('Booking (e2e)', () => {
   it('2. GET /api/public/packages/:slug - isSold false karena baru pending', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/public/packages/test-package')
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .expect(200);
       
     const dep = res.body.departures.find((d) => d.id === departure1.id);
@@ -149,21 +149,27 @@ describe('Booking (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${leads[0].id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .expect(200);
   });
 
   // Scenario 4: Create booking 2 (pending)
   it('4. POST /api/public/leads - sukses create booking 2', async () => {
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .post('/api/public/leads')
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .send({
         departureId: departure1.id,
         name: 'Jane Doe',
+        email: 'jane@example.com',
         phone: '08124',
-      })
-      .expect(201);
+      });
+      
+    if (res.status === 404) {
+      console.log('SCENARIO 4 404 BODY:', res.body);
+    }
+      
+    expect(res.status).toBe(201);
   });
 
   // Scenario 5: Admin konfirmasi booking 2 (quota 2 penuh)
@@ -173,7 +179,7 @@ describe('Booking (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${lead.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .expect(200);
   });
 
@@ -181,7 +187,7 @@ describe('Booking (e2e)', () => {
   it('6. GET /api/public/packages/:slug - isSold true karena confirmed=2, quota=2', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/public/packages/test-package')
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .expect(200);
       
     const dep = res.body.departures.find((d) => d.id === departure1.id);
@@ -192,13 +198,13 @@ describe('Booking (e2e)', () => {
   it('7. POST /api/public/leads - gagal karena kuota penuh', async () => {
     await request(app.getHttpServer())
       .post('/api/public/leads')
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .send({
         departureId: departure1.id,
         name: 'Jack Doe',
         phone: '08125',
       })
-      .expect(400); // 400 Bad Request from PublicService
+      .expect(409); // 409 Conflict from PublicService (quota full)
   });
 
   // Scenario 8: Admin gagal konfirmasi booking kalau kuota penuh
@@ -218,7 +224,7 @@ describe('Booking (e2e)', () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/leads/${lead3.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .expect(409); // 409 Conflict from LeadsService
       
     expect(res.body.message).toContain('Kuota keberangkatan sudah penuh');
@@ -228,7 +234,7 @@ describe('Booking (e2e)', () => {
   it('9. POST /api/public/leads - gagal karena tanggal sudah lewat', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/public/leads')
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .send({
         departureId: departure2.id, // past departure
         name: 'Past Doe',
@@ -244,7 +250,7 @@ describe('Booking (e2e)', () => {
     const res = await request(app.getHttpServer())
       .get('/api/leads')
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.test')
+      .set('Host', 'tenanta.umrolink.test')
       .expect(200);
       
     // Should have John Doe, Jane Doe, Pending Bypass

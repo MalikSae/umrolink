@@ -221,7 +221,7 @@ export class PublicService {
     today.setHours(0, 0, 0, 0);
     
     if (departure.departureDate < today) {
-      throw new NotFoundException('Jadwal keberangkatan sudah lewat');
+      throw new BadRequestException('Tanggal keberangkatan ini sudah lewat');
     }
 
     const confirmedCount = await this.tenantPrisma.client.lead.count({
@@ -248,6 +248,7 @@ export class PublicService {
     return {
       message: 'Booking berhasil dikirim',
       leadId: lead.id,
+      status: lead.status
     };
   }
 }

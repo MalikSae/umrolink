@@ -37,9 +37,12 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         where: { subdomain },
       });
 
-      if (tenant) {
-        tenantId = tenant.id;
+      if (!tenant) {
+        console.log('TENANT MIDDLEWARE 404:', { host, subdomain, dbUrl: process.env.DATABASE_URL });
+        return res.status(404).json({ error: 'Tenant tidak ditemukan' });
       }
+
+      tenantId = tenant.id;
     } else {
       // Custom domain
       const hostWithoutPort = host.split(':')[0];
