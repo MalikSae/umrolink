@@ -71,6 +71,7 @@ model PackageDeparture {
   quota         Int
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  leads         Lead[]
 }
 
 enum UserRole {
@@ -116,26 +117,28 @@ model AgentProfile {
 }
 
 enum LeadStatus {
-  draft
-  waitlist
+  pending
   confirmed
   cancelled
 }
 
 model Lead {
-  id        String  @id @default(cuid())
-  tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id])
-  packageId String
-  package   Package @relation(fields: [packageId], references: [id])
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  packageId   String
+  package     Package  @relation(fields: [packageId], references: [id])
+  departureId String
+  departure   PackageDeparture @relation(fields: [departureId], references: [id])
 
   // Atribusi Agen
   agentId String?
   agent   AgentProfile? @relation(fields: [agentId], references: [id])
 
-  name   String
-  phone  String
-  status LeadStatus @default(draft)
+  name        String
+  phone       String
+  status      LeadStatus @default(pending)
+  confirmedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
