@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 export class CreateLeadDto {
   @IsString()
   @IsNotEmpty()
-  packageId: string;
+  departureId: string;
 
   @IsString()
   @IsNotEmpty()

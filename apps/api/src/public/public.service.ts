@@ -181,22 +181,41 @@ export class PublicService {
   }
 
   async createLead(dto: import('./dto/create-lead.dto').CreateLeadDto, refCookie: string | null) {
-    const pkg = await this.tenantPrisma.client.package.findFirst({
-      where: { id: dto.packageId, status: 'published' }
+    const departure = await this.tenantPrisma.client.packageDeparture.findUnique({
+      where: { id: dto.departureId },
+      include: { package: true }
     });
 
-    if (!pkg) {
-      throw new NotFoundException('Package tidak ditemukan atau belum dipublish');
+    if (!departure || departure.package.status !== 'published') {
+      throw new NotFoundException('Jadwal keberangkatan tidak ditemukan atau belum dipublish');
+    }
+    
+    // Normalize today for isPast check (start of today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (departure.departureDate < today) {
+      throw new NotFoundException('Jadwal keberangkatan sudah lewat');
+    }
+
+    const confirmedCount = await this.tenantPrisma.client.lead.count({
+      where: { departureId: dto.departureId, status: 'confirmed' }
+    });
+
+    if (confirmedCount >= departure.quota) {
+      throw new ConflictException('Tanggal keberangkatan ini sudah penuh (SOLD)');
     }
 
     const agentId = await this.referralService.resolveAgentFromCookie(refCookie || undefined);
 
     const lead = await this.tenantPrisma.client.lead.create({
       data: {
-        packageId: dto.packageId,
+        departureId: dto.departureId,
+        packageId: departure.packageId,
         name: dto.name,
         phone: dto.phone,
         agentId: agentId,
+        status: 'pending'
       }
     });
 
