@@ -107,6 +107,7 @@ export class PublicService {
     const pkg = await this.tenantPrisma.client.package.findFirst({
       where: { slug, status: 'published' },
       select: {
+        id: true,
         name: true,
         description: true,
         airline: true,
@@ -120,8 +121,16 @@ export class PublicService {
         featuredImage: true,
         departures: {
           select: {
+            id: true,
             departureDate: true,
             quota: true,
+            _count: {
+              select: {
+                leads: {
+                  where: { status: 'confirmed' }
+                }
+              }
+            }
           },
           orderBy: { departureDate: 'asc' },
         },
@@ -132,7 +141,24 @@ export class PublicService {
       throw new NotFoundException('Package not found or not published');
     }
 
-    return pkg;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const formattedDepartures = pkg.departures.map(d => {
+      const confirmedCount = d._count.leads;
+      return {
+        id: d.id,
+        departureDate: d.departureDate,
+        quota: d.quota,
+        isSold: confirmedCount >= d.quota,
+        isPast: d.departureDate < today,
+      };
+    });
+
+    return {
+      ...pkg,
+      departures: formattedDepartures
+    };
   }
 
   async registerAgent(dto: RegisterAgentDto) {
