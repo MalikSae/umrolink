@@ -367,37 +367,78 @@ async function main() {
   console.log('Seeding departures...');
   await prisma.packageDeparture.deleteMany(); // clean up first
   
-  await prisma.packageDeparture.createMany({
+  const dep1 = await prisma.packageDeparture.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg1.id,
+      departureDate: new Date('2026-12-15T00:00:00.000Z'),
+      quota: 45,
+    }
+  });
+
+  const dep2 = await prisma.packageDeparture.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg1.id,
+      departureDate: new Date('2026-12-25T00:00:00.000Z'),
+      quota: 45,
+    }
+  });
+
+  const dep3 = await prisma.packageDeparture.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg2.id,
+      departureDate: new Date('2027-01-10T00:00:00.000Z'),
+      quota: 40,
+    }
+  });
+
+  const dep4 = await prisma.packageDeparture.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg3.id,
+      departureDate: new Date('2026-03-20T00:00:00.000Z'),
+      quota: 40,
+    }
+  });
+
+  const dep5 = await prisma.packageDeparture.create({
+    data: {
+      tenantId: tenantB.id,
+      packageId: pkg4.id,
+      departureDate: new Date('2026-11-10T00:00:00.000Z'),
+      quota: 30,
+    }
+  });
+
+  console.log('Seeding leads...');
+  await prisma.lead.deleteMany(); // clean up first
+  await prisma.lead.createMany({
     data: [
       {
         tenantId: tenantA.id,
         packageId: pkg1.id,
-        departureDate: new Date('2026-12-15T00:00:00.000Z'),
-        quota: 45,
+        departureId: dep1.id,
+        name: 'Hamba Allah',
+        phone: '081234567890',
+        status: 'confirmed',
       },
       {
         tenantId: tenantA.id,
         packageId: pkg1.id,
-        departureDate: new Date('2026-12-25T00:00:00.000Z'),
-        quota: 45,
+        departureId: dep1.id,
+        name: 'Fulan',
+        phone: '081234567891',
+        status: 'pending',
       },
       {
         tenantId: tenantA.id,
         packageId: pkg2.id,
-        departureDate: new Date('2027-01-10T00:00:00.000Z'),
-        quota: 40,
-      },
-      {
-        tenantId: tenantA.id,
-        packageId: pkg3.id,
-        departureDate: new Date('2026-03-20T00:00:00.000Z'),
-        quota: 40,
-      },
-      {
-        tenantId: tenantB.id,
-        packageId: pkg4.id,
-        departureDate: new Date('2026-11-10T00:00:00.000Z'),
-        quota: 30,
+        departureId: dep3.id,
+        name: 'Fulanah',
+        phone: '081234567892',
+        status: 'confirmed',
       }
     ]
   });
