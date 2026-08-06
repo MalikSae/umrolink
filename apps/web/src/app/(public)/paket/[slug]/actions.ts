@@ -2,7 +2,7 @@
 
 import { cookies, headers } from 'next/headers';
 
-export async function submitLead(data: { packageId: string; name: string; phone: string }) {
+export async function submitLead(data: { departureId: string; name: string; phone: string }) {
   try {
     const headersList = await headers();
     const host = headersList.get('x-forwarded-host') || headersList.get('host') || '';

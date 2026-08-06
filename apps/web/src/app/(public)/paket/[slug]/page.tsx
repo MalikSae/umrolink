@@ -143,10 +143,16 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
               <h3 className="text-2xl font-bold text-slate-900 mb-6">Jadwal Keberangkatan</h3>
               {pkg.departures && pkg.departures.length > 0 ? (
                 <div className="space-y-3">
-                  {pkg.departures.map((dep: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  {pkg.departures.map((dep: any) => (
+                    <div key={dep.id} className={`flex justify-between items-center p-4 rounded-xl border ${dep.isSold || dep.isPast ? 'bg-slate-100 border-slate-200 opacity-70' : 'bg-slate-50 border-slate-100'}`}>
                       <span className="font-medium text-slate-900">{formatDate(dep.departureDate)}</span>
-                      <span className="text-sm px-3 py-1 bg-green-100 text-green-700 rounded-full font-medium">Sisa kuota: {dep.quota}</span>
+                      {dep.isPast ? (
+                        <span className="text-sm px-3 py-1 bg-slate-200 text-slate-700 rounded-full font-medium">Sudah Lewat</span>
+                      ) : dep.isSold ? (
+                        <span className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded-full font-bold">SOLD OUT</span>
+                      ) : (
+                        <span className="text-sm px-3 py-1 bg-green-100 text-green-700 rounded-full font-medium">Tersedia</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -186,7 +192,7 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
               <h2 className="text-2xl font-bold text-slate-900">Tertarik dengan Paket Ini?</h2>
               <p className="text-slate-600 mt-2">Isi form di bawah ini dan tim kami akan segera menghubungi Anda.</p>
             </div>
-            <BookingForm packageId={pkg.id} />
+            <BookingForm departures={pkg.departures} />
           </div>
 
         </div>
