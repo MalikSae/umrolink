@@ -11,6 +11,7 @@ import { ClsMiddleware } from 'nestjs-cls';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { LeadsModule } from './leads/leads.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     PackagesModule,
     PublicModule,
     AgentsModule,
+    LeadsModule,
   ],
   controllers: [AppController],
   providers: [
