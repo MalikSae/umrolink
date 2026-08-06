@@ -11,6 +11,7 @@ interface DepartureRow {
   id?: string;
   departureDate: string;
   quota: number;
+  _count?: { leads: number };
 }
 
 interface Package {
@@ -29,7 +30,7 @@ interface Package {
   featuredImage: string | null;
   slug: string;
   status: 'draft' | 'published';
-  departures: { id: string; departureDate: string; quota: number }[];
+  departures: { id: string; departureDate: string; quota: number; _count?: { leads: number } }[];
 }
 
 function SectionCard({
@@ -118,6 +119,7 @@ export default function EditPackagePage() {
             id: d.id,
             departureDate: d.departureDate.split('T')[0],
             quota: d.quota,
+            _count: d._count,
           }))
         );
       })
@@ -511,6 +513,16 @@ export default function EditPackagePage() {
                         error={fieldErrors[`departures.${index}.quota`]}
                       />
                     </div>
+                    {dep._count !== undefined && (
+                      <div className="w-24 shrink-0 flex flex-col justify-end pb-2">
+                        <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
+                          Terisi: {dep._count.leads}/{dep.quota}
+                        </span>
+                        <span className="text-[10px] text-neutral-400">
+                          ({dep.quota > 0 ? Math.round((dep._count.leads / dep.quota) * 100) : 0}%)
+                        </span>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeDeparture(index)}

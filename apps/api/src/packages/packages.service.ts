@@ -182,6 +182,11 @@ export class PackagesService {
       include: {
         departures: {
           orderBy: { departureDate: 'asc' },
+          include: {
+            _count: {
+              select: { leads: { where: { status: 'confirmed' } } }
+            }
+          }
         },
       },
     });
