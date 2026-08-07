@@ -14,7 +14,7 @@ export class PublicService {
     private readonly rawPrisma: RawPrismaService,
     private readonly cls: ClsService,
     private readonly referralService: ReferralAttributionService,
-  ) {}
+  ) { }
 
   async getTenant() {
     const tenantId = this.cls.get('tenantId');
@@ -65,7 +65,7 @@ export class PublicService {
 
   async getPackages(month?: string, featured?: boolean) {
     const whereClause: any = { status: 'published' };
-    
+
     if (featured) {
       whereClause.featured = true;
     }
@@ -76,7 +76,7 @@ export class PublicService {
       const monthIdx = parseInt(monthStr, 10) - 1;
       const startDate = new Date(year, monthIdx, 1);
       const endDate = new Date(year, monthIdx + 1, 0, 23, 59, 59, 999);
-      
+
       whereClause.departures = {
         some: {
           departureDate: {
@@ -170,7 +170,7 @@ export class PublicService {
     if (existingUser) {
       throw new ConflictException('Email ini sudah terdaftar. Silakan gunakan email lain.');
     }
-    
+
     // 1b. Cek validitas kota (city)
     const isValidCity = kabupatenKota.some(city => city.name === dto.city);
     if (!isValidCity) {
@@ -207,7 +207,9 @@ export class PublicService {
   }
 
   async createLead(dto: import('./dto/create-lead.dto').CreateLeadDto, refCookie: string | null) {
-    const departure = await this.tenantPrisma.client.packageDeparture.findUnique({
+    // Gunakan findFirst (bukan findUnique) karena tenant extension menyuntikkan tenantId
+    // ke where clause, dan findUnique hanya menerima field unik.
+    const departure = await this.tenantPrisma.client.packageDeparture.findFirst({
       where: { id: dto.departureId },
       include: { package: true }
     });
@@ -215,11 +217,11 @@ export class PublicService {
     if (!departure || departure.package.status !== 'published') {
       throw new NotFoundException('Jadwal keberangkatan tidak ditemukan atau belum dipublish');
     }
-    
+
     // Normalize today for isPast check (start of today)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (departure.departureDate < today) {
       throw new BadRequestException('Tanggal keberangkatan ini sudah lewat');
     }

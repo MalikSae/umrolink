@@ -9,7 +9,7 @@ import * as jwt from 'jsonwebtoken';
 describe('Commission (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
-  
+
   let tenantA: any;
   let tenantB: any;
   let pkg1: any;
@@ -20,7 +20,7 @@ describe('Commission (e2e)', () => {
   let adminToken: string;
   let adminTokenB: string;
   let agentToken: string;
-  
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -32,16 +32,24 @@ describe('Commission (e2e)', () => {
     await app.init();
 
     prisma = new PrismaClient();
-    
-    await prisma.commission.deleteMany();
-    await prisma.banner.deleteMany();
-    await prisma.lead.deleteMany();
-    await prisma.packageDeparture.deleteMany();
-    await prisma.package.deleteMany();
-    await prisma.agentProfile.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.tenant.deleteMany();
-    
+
+    // Clean up ONLY our own test tenants (tenanta/tenantb), preserve seed tenants (barokah/hijaz)
+    const testTenants = await prisma.tenant.findMany({
+      where: { subdomain: { in: ['tenanta', 'tenantb'] } }
+    });
+    const testTenantIds = testTenants.map(t => t.id);
+
+    if (testTenantIds.length > 0) {
+      await prisma.commission.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.lead.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.packageDeparture.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.package.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.agentProfile.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.user.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.banner.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.tenant.deleteMany({ where: { id: { in: testTenantIds } } });
+    }
+
     tenantA = await prisma.tenant.create({ data: { name: 'Tenant A', subdomain: 'tenanta' } });
     tenantB = await prisma.tenant.create({ data: { name: 'Tenant B', subdomain: 'tenantb' } });
 
@@ -209,7 +217,7 @@ describe('Commission (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
-      
+
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThan(0);
   });
@@ -222,20 +230,20 @@ describe('Commission (e2e)', () => {
       },
       include: { agentProfile: true }
     });
-    
+
     const l6 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L6', phone: '666', status: 'pending', agentId: agent2.agentProfile!.id } });
     await request(app.getHttpServer())
       .patch(`/api/leads/${l6.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
-      
+
     const res = await request(app.getHttpServer())
       .get(`/api/agent/commissions`)
       .set('Authorization', `Bearer ${agentToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
-      
+
     expect(res.body).toHaveProperty('commissions');
     expect(res.body.commissions.every((c: any) => c.agentId === agent.agentProfile.id)).toBe(true);
   });

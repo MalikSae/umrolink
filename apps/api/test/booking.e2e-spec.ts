@@ -9,7 +9,7 @@ import * as jwt from 'jsonwebtoken';
 describe('Booking (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
-  
+
   let tenantA: any;
   let tenantB: any;
   let pkg: any;
@@ -19,7 +19,7 @@ describe('Booking (e2e)', () => {
   let adminToken: string;
   let adminTokenB: string;
   let agentToken: string;
-  
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -31,16 +31,24 @@ describe('Booking (e2e)', () => {
     await app.init();
 
     prisma = new PrismaClient();
-    
-    // Clean up
-    await prisma.banner.deleteMany();
-    await prisma.lead.deleteMany();
-    await prisma.packageDeparture.deleteMany();
-    await prisma.package.deleteMany();
-    await prisma.agentProfile.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.tenant.deleteMany();
-    
+
+    // Clean up ONLY our own test tenants (tenanta/tenantb), preserve seed tenants (barokah/hijaz)
+    const testTenants = await prisma.tenant.findMany({
+      where: { subdomain: { in: ['tenanta', 'tenantb'] } }
+    });
+    const testTenantIds = testTenants.map(t => t.id);
+
+    if (testTenantIds.length > 0) {
+      await prisma.commission.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.lead.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.packageDeparture.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.package.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.agentProfile.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.user.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.banner.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.tenant.deleteMany({ where: { id: { in: testTenantIds } } });
+    }
+
     // Create tenant
     tenantA = await prisma.tenant.create({
       data: {
@@ -67,7 +75,7 @@ describe('Booking (e2e)', () => {
         tenantId: tenantA.id
       }
     });
-    
+
     adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role, tenantId: admin.tenantId }, process.env.JWT_SECRET || 'secret');
 
     const adminB = await prisma.user.create({
@@ -79,7 +87,7 @@ describe('Booking (e2e)', () => {
         tenantId: tenantB.id
       }
     });
-    
+
     adminTokenB = jwt.sign({ sub: adminB.id, email: adminB.email, role: adminB.role, tenantId: adminB.tenantId }, process.env.JWT_SECRET || 'secret');
 
     // Create agent
@@ -102,9 +110,9 @@ describe('Booking (e2e)', () => {
       },
       include: { agentProfile: true }
     });
-    
+
     agentToken = jwt.sign({ sub: agent.id, email: agent.email, role: agent.role, tenantId: agent.tenantId, agentProfileId: agent.agentProfile.id }, process.env.JWT_SECRET || 'secret');
-    
+
     // Create package
     pkg = await prisma.package.create({
       data: {
@@ -114,7 +122,7 @@ describe('Booking (e2e)', () => {
         status: 'published'
       }
     });
-    
+
     // Create departures
     // dep1: future, quota 2
     departure1 = await prisma.packageDeparture.create({
@@ -125,7 +133,7 @@ describe('Booking (e2e)', () => {
         quota: 2
       }
     });
-    
+
     // dep2: past, quota 5
     departure2 = await prisma.packageDeparture.create({
       data: {
@@ -153,7 +161,7 @@ describe('Booking (e2e)', () => {
         phone: '08123',
       })
       .expect(201);
-      
+
     expect(res.body.status).toBe('pending');
   });
 
@@ -163,7 +171,7 @@ describe('Booking (e2e)', () => {
       .get('/api/public/packages/test-package')
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
-      
+
     const dep = res.body.departures.find((d) => d.id === departure1.id);
     expect(dep.isSold).toBe(false);
   });
@@ -171,7 +179,7 @@ describe('Booking (e2e)', () => {
   // Scenario 3: Admin konfirmasi booking 1
   it('3. PATCH /api/leads/:id/confirm - sukses confirm booking 1', async () => {
     const leads = await prisma.lead.findMany({ where: { departureId: departure1.id } });
-    
+
     await request(app.getHttpServer())
       .patch(`/api/leads/${leads[0].id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -190,18 +198,18 @@ describe('Booking (e2e)', () => {
         email: 'jane@example.com',
         phone: '08124',
       });
-      
+
     if (res.status === 404) {
       console.log('SCENARIO 4 404 BODY:', res.body);
     }
-      
+
     expect(res.status).toBe(201);
   });
 
   // Scenario 5: Admin konfirmasi booking 2 (quota 2 penuh)
   it('5. PATCH /api/leads/:id/confirm - sukses confirm booking 2 (kuota jadi penuh)', async () => {
     const lead = await prisma.lead.findFirst({ where: { name: 'Jane Doe' } });
-    
+
     await request(app.getHttpServer())
       .patch(`/api/leads/${lead.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -215,7 +223,7 @@ describe('Booking (e2e)', () => {
       .get('/api/public/packages/test-package')
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
-      
+
     const dep = res.body.departures.find((d) => d.id === departure1.id);
     expect(dep.isSold).toBe(true);
   });
@@ -252,7 +260,7 @@ describe('Booking (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(409); // 409 Conflict from LeadsService
-      
+
     expect(res.body.message).toContain('Kuota keberangkatan sudah penuh');
   });
 
@@ -267,7 +275,7 @@ describe('Booking (e2e)', () => {
         phone: '08127',
       })
       .expect(400);
-      
+
     expect(res.body.message).toContain('Tanggal keberangkatan ini sudah lewat');
   });
 
@@ -278,7 +286,7 @@ describe('Booking (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
-      
+
     // Should have John Doe, Jane Doe, Pending Bypass
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBe(3);
@@ -350,7 +358,7 @@ describe('Booking (e2e)', () => {
   it('13. PATCH /api/leads/:id/cancel - membatalkan booking confirmed dan membuka kuota lagi', async () => {
     // Find Jane Doe (which is confirmed and made quota full in Scenario 5)
     const lead = await prisma.lead.findFirst({ where: { name: 'Jane Doe' } });
-    
+
     // Cancel Jane Doe
     await request(app.getHttpServer())
       .patch(`/api/leads/${lead.id}/cancel`)
@@ -382,7 +390,7 @@ describe('Booking (e2e)', () => {
   // Scenario 15: Cross-tenant confirmation 404
   it('15. PATCH /api/leads/:id/confirm cross-tenant -> 404', async () => {
     const lead = await prisma.lead.findFirst({ where: { name: 'John Doe' } });
-    
+
     // Try to confirm tenantA's lead using tenantB's admin
     await request(app.getHttpServer())
       .patch(`/api/leads/${lead.id}/confirm`)

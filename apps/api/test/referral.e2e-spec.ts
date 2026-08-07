@@ -11,6 +11,7 @@ describe('Referral Attribution (e2e)', () => {
 
   let barokahPkgId = '';
   let hijazPkgId = '';
+  let barokahDepId = '';
   let barokahAgentCode = 'BTT001'; // exists in seed
   let barokahPendingAgentCode = 'PENDING1';
   let hijazAgentCode = 'HJZ999';
@@ -23,11 +24,11 @@ describe('Referral Attribution (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    
+
     // Add cookie parser for tests
     const cookieParser = require('cookie-parser');
     app.use(cookieParser());
-    
+
     await app.init();
     rawPrisma = app.get(RawPrismaService);
 
@@ -40,6 +41,10 @@ describe('Referral Attribution (e2e)', () => {
     barokahPkgId = pkg1.id;
     const pkg2 = await rawPrisma.package.findFirst({ where: { tenantId: tenantHijaz.id, status: 'published' } });
     hijazPkgId = pkg2.id;
+
+    // Ensure we have a departure for the barokah package (booking flow uses departureId)
+    const dep1 = await rawPrisma.packageDeparture.findFirst({ where: { packageId: barokahPkgId } });
+    barokahDepId = dep1.id;
 
     // Cleanup first
     await rawPrisma.agentProfile.deleteMany({
@@ -147,18 +152,19 @@ describe('Referral Attribution (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .set('Cookie', [`umrolink_ref=${barokahAgentCode}`])
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Satu',
         phone: '08111111'
       });
 
+    if (res.status !== 201) console.log(res.body);
     expect(res.status).toBe(201);
-    
+
     // Verify lead
     const lead = await rawPrisma.lead.findUnique({ where: { id: res.body.leadId } });
     expect(lead).toBeDefined();
     expect(lead.agentId).not.toBeNull();
-    
+
     const agent = await rawPrisma.agentProfile.findUnique({ where: { id: lead.agentId } });
     expect(agent.agentCode).toBe(barokahAgentCode);
   });
@@ -168,7 +174,7 @@ describe('Referral Attribution (e2e)', () => {
       .post('/api/public/leads')
       .set('Host', `barokah.${rootDomain}`)
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Dua',
         phone: '08222222'
       });
@@ -184,7 +190,7 @@ describe('Referral Attribution (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .set('Cookie', [`umrolink_ref=INVALID123`])
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Tiga',
         phone: '08333333'
       });
@@ -200,7 +206,7 @@ describe('Referral Attribution (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .set('Cookie', [`umrolink_ref=${barokahPendingAgentCode}`])
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Empat',
         phone: '08444444'
       });
@@ -217,7 +223,7 @@ describe('Referral Attribution (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .set('Cookie', [`umrolink_ref=${barokahAgentCode}`])
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Lima A',
         phone: '08555555'
       });
@@ -233,7 +239,7 @@ describe('Referral Attribution (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .set('Cookie', [`umrolink_ref=${barokahAgentCode2}`])
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Lima B',
         phone: '08666666'
       });
@@ -253,7 +259,7 @@ describe('Referral Attribution (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .set('Cookie', [`umrolink_ref=${hijazAgentCode}`])
       .send({
-        packageId: barokahPkgId,
+        departureId: barokahDepId,
         name: 'Jamaah Enam',
         phone: '08777777'
       });

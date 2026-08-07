@@ -169,7 +169,7 @@ async function main() {
   console.log({ superAdmin, adminBarokah, agentBarokah, pendingAgent1, pendingAgent2, adminHijaz });
 
   console.log('Seeding packages...');
-  
+
   const pkg1 = await prisma.package.upsert({
     where: { id: 'test-pkg-1' },
     update: {
@@ -365,9 +365,10 @@ async function main() {
   console.log({ pkg1, pkg2, pkg3, pkg4, pkg5 });
 
   console.log('Seeding departures...');
+  await prisma.commission.deleteMany();
   await prisma.lead.deleteMany();
   await prisma.packageDeparture.deleteMany(); // clean up first
-  
+
   const dep1 = await prisma.packageDeparture.create({
     data: {
       tenantId: tenantA.id,
@@ -390,7 +391,7 @@ async function main() {
     data: {
       tenantId: tenantA.id,
       packageId: pkg2.id,
-      departureDate: new Date('2027-01-10T00:00:00.000Z'),
+      departureDate: new Date('2027-05-10T00:00:00.000Z'),
       quota: 40,
     }
   });
@@ -399,7 +400,7 @@ async function main() {
     data: {
       tenantId: tenantA.id,
       packageId: pkg3.id,
-      departureDate: new Date('2026-03-20T00:00:00.000Z'),
+      departureDate: new Date('2027-03-20T00:00:00.000Z'),
       quota: 40,
     }
   });
@@ -416,7 +417,7 @@ async function main() {
   console.log('Seeding leads and commissions...');
   await prisma.commission.deleteMany();
   await prisma.lead.deleteMany(); // clean up first
-  
+
   const lead1 = await prisma.lead.create({
     data: {
       tenantId: tenantA.id,
