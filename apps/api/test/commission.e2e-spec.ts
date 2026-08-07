@@ -34,6 +34,7 @@ describe('Commission (e2e)', () => {
     prisma = new PrismaClient();
     
     await prisma.commission.deleteMany();
+    await prisma.banner.deleteMany();
     await prisma.lead.deleteMany();
     await prisma.packageDeparture.deleteMany();
     await prisma.package.deleteMany();
