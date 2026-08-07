@@ -25,33 +25,41 @@ export class LeadsService {
   }
 
   async confirm(id: string) {
-    return this.tenantPrisma.client.$transaction(async (tx) => {
-      const lead = await tx.lead.findUnique({
-        where: { id },
-        include: { departure: true }
+    try {
+      return await this.tenantPrisma.client.$transaction(async (tx) => {
+        const lead = await tx.lead.findUnique({
+          where: { id },
+          include: { departure: true }
+        });
+
+        if (!lead) throw new NotFoundException('Lead tidak ditemukan');
+        if (lead.status === 'confirmed') return lead; // already confirmed
+
+        const confirmedCount = await tx.lead.count({
+          where: { departureId: lead.departureId, status: 'confirmed' }
+        });
+
+        if (confirmedCount >= lead.departure.quota) {
+          throw new ConflictException('Kuota keberangkatan sudah penuh');
+        }
+
+        return tx.lead.update({
+          where: { id },
+          data: {
+            status: 'confirmed',
+            confirmedAt: new Date()
+          }
+        });
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       });
-
-      if (!lead) throw new NotFoundException('Lead tidak ditemukan');
-      if (lead.status === 'confirmed') return lead; // already confirmed
-
-      const confirmedCount = await tx.lead.count({
-        where: { departureId: lead.departureId, status: 'confirmed' }
-      });
-
-      if (confirmedCount >= lead.departure.quota) {
+    } catch (err) {
+      // P2034 = Transaction failed due to a write conflict or deadlock (MySQL SERIALIZABLE)
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034') {
         throw new ConflictException('Kuota keberangkatan sudah penuh');
       }
-
-      return tx.lead.update({
-        where: { id },
-        data: {
-          status: 'confirmed',
-          confirmedAt: new Date()
-        }
-      });
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
-    });
+      throw err; // re-throw semua error lain (termasuk ConflictException dari dalam tx)
+    }
   }
 
   async cancel(id: string) {

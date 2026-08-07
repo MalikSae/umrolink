@@ -321,15 +321,15 @@ describe('Booking (e2e)', () => {
     const responses = await Promise.all([req1, req2]);
 
     const statuses = responses.map(r => r.status);
-    // One must succeed (200), the other must fail (409 quota full or 500 serialization error)
-    const successCount = statuses.filter(s => s === 200).length;
-    expect(successCount).toBe(1); // EXACTLY one confirm must succeed
+    // Assert KETAT: tepat satu 200, satu lagi HARUS 409 (bukan 500)
+    expect(statuses.filter(s => s === 200).length).toBe(1);  // tepat satu sukses
+    expect(statuses.filter(s => s === 409).length).toBe(1);  // satunya HARUS 409
 
-    // Verify DB: exactly 1 confirmed lead for this departure
+    // Verify DB: exactly 1 confirmed lead for this departure (tidak ada overbooking)
     const confirmedInDb = await prisma.lead.count({
       where: { departureId: raceDep.id, status: 'confirmed' }
     });
-    expect(confirmedInDb).toBe(1); // NOT 2 — overbooking tidak boleh terjadi
+    expect(confirmedInDb).toBe(1);
   });
 
   // Scenario 12: Cross tenant public booking 404
