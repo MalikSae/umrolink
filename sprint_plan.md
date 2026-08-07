@@ -18,7 +18,7 @@
 | 5 | Registrasi & Approval Agen | **Selesai** | Kode agen unik per tenant |
 | 6 | Atribusi Referral | **Selesai** | Cookie 30 hari, lock atribusi |
 | 7 | Booking & Kuota | **Selesai** | Kuota per tanggal keberangkatan, SERIALIZABLE tx, 15 E2E scenarios |
-| 8 | Komisi | Belum mulai | Auto-generate komisi, dashboard agen |
+| 8 | Komisi | **Selesai** | Auto-generate komisi, dashboard agen |
 | 9 | Dashboard Travel Admin Lanjutan | Belum mulai | Kelola booking & status |
 | 10 | Dashboard Agent Lanjutan | Belum mulai | Statistik referral, copy-link |
 | 11 | Notifikasi | Belum mulai | Email via queue (BullMQ) |
@@ -198,7 +198,12 @@
 - Dashboard agen: riwayat & status komisi
 
 **Definition of Done:**
-- [ ] Komisi tidak muncul untuk booking yang belum confirmed atau batal (test otomatis)
+- [x] Komisi tidak muncul untuk booking yang belum confirmed atau batal (test otomatis)
+- [x] Komisi batal otomatis jika booking dibatalkan (termasuk peringatan jika sudah dibayar)
+- [x] Dashboard agen untuk melihat daftar komisi dan statisik total pending/paid
+- [x] Dashboard travel_admin untuk melihat dan mengubah status komisi (mark payable, mark paid)
+- [x] Fix Prisma validation error `findUnique` (diganti `findFirst`) untuk model ber-tenant
+- [x] E2E Suite `commission.e2e-spec.ts` 13 skenario, race condition teratasi
 
 ---
 
@@ -269,3 +274,4 @@
 |---|---|
 | 2026-08-03 | Draft awal roadmap 15 sprint untuk stack Node.js/TypeScript |
 | 2026-08-07 | Sprint 7 selesai: Booking & Kuota — 15 E2E scenarios, SERIALIZABLE tx, race condition proof, debug log security fix |
+| 2026-08-07 | Sprint 8 selesai: Komisi — Auto-create/cancel komisi, dashboard komisi agen, perbaikan Prisma validation (`findFirst`), perbaikan test race condition |
