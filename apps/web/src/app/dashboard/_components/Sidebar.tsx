@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, X, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, X, Users, Settings, Banknote } from 'lucide-react';
 import { useUser } from '../layout';
 
 interface SidebarProps {
@@ -23,10 +23,15 @@ function SidebarContent({ onClose, collapsed }: { onClose?: () => void; collapse
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ];
 
-    if (role === 'travel_admin') {
+    if (role === 'travel_admin' || role === 'super_admin') {
       items.push(
         { href: '/dashboard/packages', label: 'Manajemen Paket', icon: Package },
         { href: '/dashboard/agen', label: 'Manajemen Agen', icon: Users },
+        { href: '/dashboard/commissions', label: 'Komisi', icon: Banknote },
+      );
+    } else if (role === 'agent') {
+      items.push(
+        { href: '/dashboard/commissions', label: 'Komisi', icon: Banknote },
       );
     }
     
