@@ -84,7 +84,7 @@ export default function ClientPage({ initialLeads, userRole }: { initialLeads: a
                       <td className="px-6 py-4 text-right">
                         {lead.status === 'pending' && (
                           <Button 
-                            variant="primary" 
+                            variant="default"
                             size="sm" 
                             onClick={() => handleConfirm(lead.id)}
                             disabled={loadingId === lead.id}
