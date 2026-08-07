@@ -11,11 +11,14 @@ describe('Booking (e2e)', () => {
   let prisma: PrismaClient;
   
   let tenantA: any;
+  let tenantB: any;
   let pkg: any;
   let departure1: any;
   let departure2: any;
   let agent: any;
   let adminToken: string;
+  let adminTokenB: string;
+  let agentToken: string;
   
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -46,6 +49,13 @@ describe('Booking (e2e)', () => {
       }
     });
 
+    tenantB = await prisma.tenant.create({
+      data: {
+        name: 'Tenant B',
+        subdomain: 'tenantb',
+      }
+    });
+
     // Create admin & token
     const passwordHash = await argon2.hash('Password123!');
     const admin = await prisma.user.create({
@@ -59,6 +69,18 @@ describe('Booking (e2e)', () => {
     });
     
     adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role, tenantId: admin.tenantId }, process.env.JWT_SECRET || 'secret');
+
+    const adminB = await prisma.user.create({
+      data: {
+        email: 'admin@tenantb.umrolink.test',
+        passwordHash,
+        name: 'Admin B',
+        role: 'travel_admin',
+        tenantId: tenantB.id
+      }
+    });
+    
+    adminTokenB = jwt.sign({ sub: adminB.id, email: adminB.email, role: adminB.role, tenantId: adminB.tenantId }, process.env.JWT_SECRET || 'secret');
 
     // Create agent
     agent = await prisma.user.create({
@@ -77,8 +99,11 @@ describe('Booking (e2e)', () => {
             agentCode: 'AGT001'
           }
         }
-      }
+      },
+      include: { agentProfile: true }
     });
+    
+    agentToken = jwt.sign({ sub: agent.id, email: agent.email, role: agent.role, tenantId: agent.tenantId, agentProfileId: agent.agentProfile.id }, process.env.JWT_SECRET || 'secret');
     
     // Create package
     pkg = await prisma.package.create({
@@ -114,6 +139,7 @@ describe('Booking (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+    await prisma.$disconnect();
   });
 
   // Scenario 1: Sukses create booking pending
@@ -258,5 +284,110 @@ describe('Booking (e2e)', () => {
     expect(res.body.length).toBe(3);
     expect(res.body[0]).toHaveProperty('package');
     expect(res.body[0]).toHaveProperty('departure');
+  });
+
+  // Scenario 11: Race condition test (2 pending confirmed at same time for 1 quota)
+  it('11. Race condition - dua confirm request bersamaan saat kuota sisa 1 (TIDAK BOLEH overbooking)', async () => {
+    // We create a new departure with quota 1
+    const raceDep = await prisma.packageDeparture.create({
+      data: {
+        tenantId: tenantA.id,
+        packageId: pkg.id,
+        departureDate: new Date(Date.now() + 86400000 * 40),
+        quota: 1
+      }
+    });
+
+    const lead1 = await prisma.lead.create({
+      data: { tenantId: tenantA.id, packageId: pkg.id, departureId: raceDep.id, name: 'Race 1', phone: '08128', status: 'pending' }
+    });
+    const lead2 = await prisma.lead.create({
+      data: { tenantId: tenantA.id, packageId: pkg.id, departureId: raceDep.id, name: 'Race 2', phone: '08129', status: 'pending' }
+    });
+
+    // Run simultaneously
+    const req1 = request(app.getHttpServer())
+      .patch(`/api/leads/${lead1.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .send();
+
+    const req2 = request(app.getHttpServer())
+      .patch(`/api/leads/${lead2.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .send();
+
+    const responses = await Promise.all([req1, req2]);
+
+    const statuses = responses.map(r => r.status);
+    // One must succeed (200), the other must fail (409 quota full or 500 serialization error)
+    const successCount = statuses.filter(s => s === 200).length;
+    expect(successCount).toBe(1); // EXACTLY one confirm must succeed
+
+    // Verify DB: exactly 1 confirmed lead for this departure
+    const confirmedInDb = await prisma.lead.count({
+      where: { departureId: raceDep.id, status: 'confirmed' }
+    });
+    expect(confirmedInDb).toBe(1); // NOT 2 — overbooking tidak boleh terjadi
+  });
+
+  // Scenario 12: Cross tenant public booking 404
+  it('12. POST /api/public/leads dengan departureId milik tenant lain -> 404', async () => {
+    // Departure 1 belongs to tenantA. We try to book it via tenantB.
+    const res = await request(app.getHttpServer())
+      .post('/api/public/leads')
+      .set('Host', 'tenantb.umrolink.test')
+      .send({
+        departureId: departure1.id,
+        name: 'Sneaky Doe',
+        phone: '08130',
+      })
+      .expect(404);
+  });
+
+  // Scenario 13: Patch cancel and then rebook
+  it('13. PATCH /api/leads/:id/cancel - membatalkan booking confirmed dan membuka kuota lagi', async () => {
+    // Find Jane Doe (which is confirmed and made quota full in Scenario 5)
+    const lead = await prisma.lead.findFirst({ where: { name: 'Jane Doe' } });
+    
+    // Cancel Jane Doe
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${lead.id}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    // Now quota should have 1 free space, let's book again
+    await request(app.getHttpServer())
+      .post('/api/public/leads')
+      .set('Host', 'tenanta.umrolink.test')
+      .send({
+        departureId: departure1.id,
+        name: 'Replacement Doe',
+        phone: '08131',
+      })
+      .expect(201);
+  });
+
+  // Scenario 14: GET /api/leads dengan token role agent -> 403
+  it('14. GET /api/leads dengan token role agent -> 403', async () => {
+    await request(app.getHttpServer())
+      .get('/api/leads')
+      .set('Authorization', `Bearer ${agentToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(403);
+  });
+
+  // Scenario 15: Cross-tenant confirmation 404
+  it('15. PATCH /api/leads/:id/confirm cross-tenant -> 404', async () => {
+    const lead = await prisma.lead.findFirst({ where: { name: 'John Doe' } });
+    
+    // Try to confirm tenantA's lead using tenantB's admin
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${lead.id}/confirm`)
+      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Host', 'tenantb.umrolink.test')
+      .expect(404);
   });
 });

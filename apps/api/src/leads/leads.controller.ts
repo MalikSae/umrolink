@@ -9,7 +9,7 @@ export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 
   @Get()
-  @Roles('super_admin', 'travel_admin', 'agent')
+  @Roles('super_admin', 'travel_admin')
   findAll() {
     return this.leadsService.findAll();
   }
@@ -18,5 +18,11 @@ export class LeadsController {
   @Roles('super_admin', 'travel_admin')
   confirm(@Param('id') id: string) {
     return this.leadsService.confirm(id);
+  }
+
+  @Patch(':id/cancel')
+  @Roles('super_admin', 'travel_admin')
+  cancel(@Param('id') id: string) {
+    return this.leadsService.cancel(id);
   }
 }

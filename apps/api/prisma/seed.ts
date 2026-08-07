@@ -365,6 +365,7 @@ async function main() {
   console.log({ pkg1, pkg2, pkg3, pkg4, pkg5 });
 
   console.log('Seeding departures...');
+  await prisma.lead.deleteMany();
   await prisma.packageDeparture.deleteMany(); // clean up first
   
   const dep1 = await prisma.packageDeparture.create({

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { TenantPrismaService } from '../tenancy/tenant-prisma.service';
 import { ClsService } from 'nestjs-cls';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class LeadsService {
@@ -10,13 +11,7 @@ export class LeadsService {
   ) {}
 
   async findAll() {
-    const userRole = this.cls.get('role');
-    const agentProfileId = this.cls.get('agentProfileId');
-
     const where: any = {};
-    if (userRole === 'agent') {
-      where.agentId = agentProfileId;
-    }
 
     return this.tenantPrisma.client.lead.findMany({
       where,
@@ -54,6 +49,18 @@ export class LeadsService {
           confirmedAt: new Date()
         }
       });
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+    });
+  }
+
+  async cancel(id: string) {
+    return this.tenantPrisma.client.lead.update({
+      where: { id },
+      data: {
+        status: 'cancelled',
+        confirmedAt: null
+      }
     });
   }
 }

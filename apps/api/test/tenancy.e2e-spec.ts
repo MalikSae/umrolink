@@ -2,12 +2,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { PrismaClient } from '@prisma/client';
+import * as argon2 from 'argon2';
 
 describe('Tenancy (e2e)', () => {
   let app: INestApplication;
 
   let barokahToken = '';
   let hijazToken = '';
+  let prisma: PrismaClient;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,6 +20,29 @@ describe('Tenancy (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
+
+    prisma = new PrismaClient();
+    const passwordHash = await argon2.hash('Password123!');
+
+    await prisma.tenant.upsert({
+      where: { subdomain: 'barokah' },
+      update: {},
+      create: {
+        name: 'Barokah Tour & Travel',
+        subdomain: 'barokah',
+        users: { create: { email: 'admin@barokah.test', passwordHash, name: 'Admin Barokah', role: 'super_admin' } }
+      }
+    });
+
+    await prisma.tenant.upsert({
+      where: { subdomain: 'hijaz' },
+      update: {},
+      create: {
+        name: 'Hijaz Umrah',
+        subdomain: 'hijaz',
+        users: { create: { email: 'admin@hijaz.test', passwordHash, name: 'Admin Hijaz', role: 'super_admin' } }
+      }
+    });
 
     const rootD = process.env.TENANT_ROOT_DOMAIN || 'localhost';
     const resA = await request(app.getHttpServer())
@@ -34,6 +60,7 @@ describe('Tenancy (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+    await prisma.$disconnect();
   });
 
   const rootDomain = process.env.TENANT_ROOT_DOMAIN || 'localhost';
