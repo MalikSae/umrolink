@@ -26,7 +26,7 @@ export class AgentsService {
   }
 
   async approveAgent(id: string) {
-    const agentProfile = await this.tenantPrisma.client.agentProfile.findUnique({
+    const agentProfile = await this.tenantPrisma.client.agentProfile.findFirst({
       where: { id },
       include: { tenant: true }
     });
@@ -103,7 +103,7 @@ export class AgentsService {
   }
 
   async rejectAgent(id: string) {
-    const agentProfile = await this.tenantPrisma.client.agentProfile.findUnique({
+    const agentProfile = await this.tenantPrisma.client.agentProfile.findFirst({
       where: { id }
     });
 

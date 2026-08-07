@@ -35,7 +35,7 @@ describe('Commission (e2e)', () => {
 
     // Clean up ONLY our own test tenants (tenanta/tenantb), preserve seed tenants (barokah/hijaz)
     const testTenants = await prisma.tenant.findMany({
-      where: { subdomain: { in: ['tenanta', 'tenantb'] } }
+      where: { subdomain: { in: ['commtenanta', 'commtenantb'] } }
     });
     const testTenantIds = testTenants.map(t => t.id);
 
@@ -50,19 +50,19 @@ describe('Commission (e2e)', () => {
       await prisma.tenant.deleteMany({ where: { id: { in: testTenantIds } } });
     }
 
-    tenantA = await prisma.tenant.create({ data: { name: 'Tenant A', subdomain: 'tenanta' } });
-    tenantB = await prisma.tenant.create({ data: { name: 'Tenant B', subdomain: 'tenantb' } });
+    tenantA = await prisma.tenant.create({ data: { name: 'Comm Tenant A', subdomain: 'commtenanta' } });
+    tenantB = await prisma.tenant.create({ data: { name: 'Comm Tenant B', subdomain: 'commtenantb' } });
 
     const passwordHash = await argon2.hash('Password123!');
-    const admin = await prisma.user.create({ data: { email: 'admin@tenanta.umrolink.test', passwordHash, name: 'Admin A', role: 'travel_admin', tenantId: tenantA.id } });
+    const admin = await prisma.user.create({ data: { email: 'admin@commtenanta.umrolink.test', passwordHash, name: 'Admin A', role: 'travel_admin', tenantId: tenantA.id } });
     adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role, tenantId: admin.tenantId }, process.env.JWT_SECRET || 'secret');
 
-    const adminBUser = await prisma.user.create({ data: { email: 'admin@tenantb.umrolink.test', passwordHash, name: 'Admin B', role: 'travel_admin', tenantId: tenantB.id } });
+    const adminBUser = await prisma.user.create({ data: { email: 'admin@commtenantb.umrolink.test', passwordHash, name: 'Admin B', role: 'travel_admin', tenantId: tenantB.id } });
     adminTokenB = jwt.sign({ sub: adminBUser.id, email: adminBUser.email, role: adminBUser.role, tenantId: adminBUser.tenantId }, process.env.JWT_SECRET || 'secret');
 
     agent = await prisma.user.create({
       data: {
-        email: 'agent@tenanta.umrolink.test', passwordHash, name: 'Agent A', role: 'agent', tenantId: tenantA.id,
+        email: 'agent@commtenanta.umrolink.test', passwordHash, name: 'Agent A', role: 'agent', tenantId: tenantA.id,
         agentProfile: { create: { tenantId: tenantA.id, phone: '123', city: 'city', status: 'active', agentCode: 'AGT001' } }
       },
       include: { agentProfile: true }
@@ -99,7 +99,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${agentLeadId}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     const comm = await prisma.commission.findUnique({ where: { leadId: agentLeadId } });
@@ -113,7 +113,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${organicLeadId}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     const comm = await prisma.commission.findUnique({ where: { leadId: organicLeadId } });
@@ -124,7 +124,7 @@ describe('Commission (e2e)', () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/leads/${noCommLeadId}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     expect(res.body.warning).toBe('Paket tidak memiliki konfigurasi komisi agen');
@@ -138,13 +138,13 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${l4.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     await request(app.getHttpServer())
       .patch(`/api/leads/${l4.id}/cancel`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     const comm = await prisma.commission.findUnique({ where: { leadId: l4.id } });
@@ -156,7 +156,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${l5.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test');
+      .set('Host', 'commtenanta.umrolink.test');
 
     const comm = await prisma.commission.findUnique({ where: { leadId: l5.id } });
     await prisma.commission.update({ where: { id: comm!.id }, data: { status: 'paid', paidAt: new Date() } });
@@ -164,7 +164,7 @@ describe('Commission (e2e)', () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/leads/${l5.id}/cancel`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     expect(res.body.warning).toBe('Booking dibatalkan tapi komisi sudah terlanjur dibayar — perlu ditangani manual');
@@ -176,7 +176,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/commissions/${pendingCommissionId}/mark-payable`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     const comm = await prisma.commission.findUnique({ where: { id: pendingCommissionId } });
@@ -187,7 +187,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/commissions/${pendingCommissionId}/mark-payable`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(400);
   });
 
@@ -195,7 +195,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/commissions/${pendingCommissionId}/mark-paid`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     const comm = await prisma.commission.findUnique({ where: { id: pendingCommissionId } });
@@ -207,7 +207,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/commissions/${pendingCommissionId}/mark-paid`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(400);
   });
 
@@ -215,7 +215,7 @@ describe('Commission (e2e)', () => {
     const res = await request(app.getHttpServer())
       .get(`/api/commissions`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -225,7 +225,7 @@ describe('Commission (e2e)', () => {
   it('11. GET /api/agent/commissions sebagai agent A -> HANYA lihat komisi milik sendiri, TIDAK lihat komisi agent lain di tenant yang sama', async () => {
     const agent2 = await prisma.user.create({
       data: {
-        email: 'agent2@tenanta.umrolink.test', passwordHash: '123', name: 'Agent 2', role: 'agent', tenantId: tenantA.id,
+        email: 'agent2@commtenanta.umrolink.test', passwordHash: '123', name: 'Agent 2', role: 'agent', tenantId: tenantA.id,
         agentProfile: { create: { tenantId: tenantA.id, phone: '123', city: 'city', status: 'active', agentCode: 'AGT003' } }
       },
       include: { agentProfile: true }
@@ -235,13 +235,13 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/leads/${l6.id}/confirm`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     const res = await request(app.getHttpServer())
       .get(`/api/agent/commissions`)
       .set('Authorization', `Bearer ${agentToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
 
     expect(res.body).toHaveProperty('commissions');
@@ -252,7 +252,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/api/agent/commissions`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Host', 'tenanta.umrolink.test')
+      .set('Host', 'commtenanta.umrolink.test')
       .expect(403);
   });
 
@@ -260,7 +260,7 @@ describe('Commission (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/commissions/${pendingCommissionId}/mark-paid`)
       .set('Authorization', `Bearer ${adminTokenB}`)
-      .set('Host', 'tenantb.umrolink.test')
+      .set('Host', 'commtenantb.umrolink.test')
       .expect(404);
   });
 });

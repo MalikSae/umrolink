@@ -27,7 +27,7 @@ export class LeadsService {
   async confirm(id: string) {
     try {
       return await this.tenantPrisma.client.$transaction(async (tx) => {
-        const lead = await tx.lead.findUnique({
+        const lead = await tx.lead.findFirst({
           where: { id },
           include: { departure: { include: { package: true } } }
         });
@@ -92,7 +92,7 @@ export class LeadsService {
         }
       });
 
-      const commission = await tx.commission.findUnique({
+      const commission = await tx.commission.findFirst({
         where: { leadId: id }
       });
 

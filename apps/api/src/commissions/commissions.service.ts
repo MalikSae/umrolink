@@ -23,7 +23,7 @@ export class CommissionsService {
   }
 
   async markPayable(id: string) {
-    const commission = await this.tenantPrisma.client.commission.findUnique({
+    const commission = await this.tenantPrisma.client.commission.findFirst({
       where: { id }
     });
 
@@ -39,7 +39,7 @@ export class CommissionsService {
   }
 
   async markPaid(id: string) {
-    const commission = await this.tenantPrisma.client.commission.findUnique({
+    const commission = await this.tenantPrisma.client.commission.findFirst({
       where: { id }
     });
 
@@ -56,7 +56,7 @@ export class CommissionsService {
 
   async findMyCommissions(userId: string) {
     // Cari AgentProfile berdasarkan userId
-    const agentProfile = await this.tenantPrisma.client.agentProfile.findUnique({
+    const agentProfile = await this.tenantPrisma.client.agentProfile.findFirst({
       where: { userId }
     });
 
