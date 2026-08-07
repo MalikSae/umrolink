@@ -29,7 +29,7 @@ export class LeadsService {
       return await this.tenantPrisma.client.$transaction(async (tx) => {
         const lead = await tx.lead.findUnique({
           where: { id },
-          include: { departure: true }
+          include: { departure: { include: { package: true } } }
         });
 
         if (!lead) throw new NotFoundException('Lead tidak ditemukan');
@@ -43,13 +43,33 @@ export class LeadsService {
           throw new ConflictException('Kuota keberangkatan sudah penuh');
         }
 
-        return tx.lead.update({
+        const updatedLead = await tx.lead.update({
           where: { id },
           data: {
             status: 'confirmed',
             confirmedAt: new Date()
           }
         });
+
+        let warning: string | undefined;
+
+        if (lead.agentId) {
+          const agentCommission = lead.departure.package.agentCommission;
+          if (!agentCommission || agentCommission <= 0) {
+            warning = 'Paket tidak memiliki konfigurasi komisi agen';
+          } else {
+            await tx.commission.create({
+              data: {
+                leadId: lead.id,
+                agentId: lead.agentId,
+                amount: agentCommission,
+                status: 'pending'
+              }
+            });
+          }
+        }
+
+        return warning ? { ...updatedLead, warning } : updatedLead;
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       });
@@ -63,12 +83,33 @@ export class LeadsService {
   }
 
   async cancel(id: string) {
-    return this.tenantPrisma.client.lead.update({
-      where: { id },
-      data: {
-        status: 'cancelled',
-        confirmedAt: null
+    return this.tenantPrisma.client.$transaction(async (tx) => {
+      const lead = await tx.lead.update({
+        where: { id },
+        data: {
+          status: 'cancelled',
+          confirmedAt: null
+        }
+      });
+
+      const commission = await tx.commission.findUnique({
+        where: { leadId: id }
+      });
+
+      let warning: string | undefined;
+
+      if (commission) {
+        if (commission.status === 'pending' || commission.status === 'payable') {
+          await tx.commission.update({
+            where: { id: commission.id },
+            data: { status: 'cancelled' }
+          });
+        } else if (commission.status === 'paid') {
+          warning = 'Booking dibatalkan tapi komisi sudah terlanjur dibayar — perlu ditangani manual';
+        }
       }
+
+      return warning ? { ...lead, warning } : lead;
     });
   }
 }
