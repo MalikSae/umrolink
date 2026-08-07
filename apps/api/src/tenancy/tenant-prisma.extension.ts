@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 import { BadRequestException } from '@nestjs/common';
 
-const TENANT_SCOPED_MODELS = ['user', 'package', 'packageDeparture', 'agentProfile', 'lead', 'banner'];
+const TENANT_SCOPED_MODELS = ['user', 'package', 'packageDeparture', 'agentProfile', 'lead', 'banner', 'commission'];
 
 export function createTenantPrismaExtension(cls: ClsService) {
   return (prisma: PrismaClient) => {

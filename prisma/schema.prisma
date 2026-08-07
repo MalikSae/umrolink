@@ -27,6 +27,7 @@ model Tenant {
   agentProfiles       AgentProfile[]
   leads               Lead[]
   banners             Banner[]
+  commissions         Commission[]
 }
 
 enum PackageStatus {
@@ -112,6 +113,7 @@ model AgentProfile {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   leads     Lead[]
+  commissions Commission[]
 
   @@unique([tenantId, agentCode])
 }
@@ -142,6 +144,7 @@ model Lead {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  commission Commission?
 }
 
 model Banner {
@@ -156,4 +159,26 @@ model Banner {
   order     Int      @default(0)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+enum CommissionStatus {
+  pending
+  payable
+  paid
+  cancelled
+}
+
+model Commission {
+  id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  leadId    String            @unique
+  lead      Lead              @relation(fields: [leadId], references: [id])
+  agentId   String
+  agent     AgentProfile      @relation(fields: [agentId], references: [id])
+  amount    Int
+  status    CommissionStatus  @default(pending)
+  paidAt    DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
