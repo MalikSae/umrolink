@@ -1,0 +1,257 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+const request = require('supertest');
+import { AppModule } from '../src/app.module';
+import { PrismaClient } from '@prisma/client';
+import * as argon2 from 'argon2';
+import * as jwt from 'jsonwebtoken';
+
+describe('Commission (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaClient;
+  
+  let tenantA: any;
+  let tenantB: any;
+  let pkg1: any;
+  let pkgNoComm: any;
+  let departure1: any;
+  let departureNoComm: any;
+  let agent: any;
+  let adminToken: string;
+  let adminTokenB: string;
+  let agentToken: string;
+  
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    await app.init();
+
+    prisma = new PrismaClient();
+    
+    await prisma.commission.deleteMany();
+    await prisma.lead.deleteMany();
+    await prisma.packageDeparture.deleteMany();
+    await prisma.package.deleteMany();
+    await prisma.agentProfile.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.tenant.deleteMany();
+    
+    tenantA = await prisma.tenant.create({ data: { name: 'Tenant A', subdomain: 'tenanta' } });
+    tenantB = await prisma.tenant.create({ data: { name: 'Tenant B', subdomain: 'tenantb' } });
+
+    const passwordHash = await argon2.hash('Password123!');
+    const admin = await prisma.user.create({ data: { email: 'admin@tenanta.umrolink.test', passwordHash, name: 'Admin A', role: 'travel_admin', tenantId: tenantA.id } });
+    adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role, tenantId: admin.tenantId }, process.env.JWT_SECRET || 'secret');
+
+    const adminBUser = await prisma.user.create({ data: { email: 'admin@tenantb.umrolink.test', passwordHash, name: 'Admin B', role: 'travel_admin', tenantId: tenantB.id } });
+    adminTokenB = jwt.sign({ sub: adminBUser.id, email: adminBUser.email, role: adminBUser.role, tenantId: adminBUser.tenantId }, process.env.JWT_SECRET || 'secret');
+
+    agent = await prisma.user.create({
+      data: {
+        email: 'agent@tenanta.umrolink.test', passwordHash, name: 'Agent A', role: 'agent', tenantId: tenantA.id,
+        agentProfile: { create: { tenantId: tenantA.id, phone: '123', city: 'city', status: 'active', agentCode: 'AGT001' } }
+      },
+      include: { agentProfile: true }
+    });
+    agentToken = jwt.sign({ sub: agent.id, email: agent.email, role: agent.role, tenantId: agent.tenantId, agentProfileId: agent.agentProfile.id }, process.env.JWT_SECRET || 'secret');
+
+    pkg1 = await prisma.package.create({ data: { tenantId: tenantA.id, name: 'Package 1', slug: 'package-1', status: 'published', agentCommission: 1500000 } });
+    pkgNoComm = await prisma.package.create({ data: { tenantId: tenantA.id, name: 'Package No Comm', slug: 'package-no-comm', status: 'published' } });
+
+    departure1 = await prisma.packageDeparture.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureDate: new Date(Date.now() + 86400000 * 30), quota: 10 } });
+    departureNoComm = await prisma.packageDeparture.create({ data: { tenantId: tenantA.id, packageId: pkgNoComm.id, departureDate: new Date(Date.now() + 86400000 * 30), quota: 10 } });
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await prisma.$disconnect();
+  });
+
+  let organicLeadId: string;
+  let agentLeadId: string;
+  let noCommLeadId: string;
+  let pendingCommissionId: string;
+
+  beforeAll(async () => {
+    const l1 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L1', phone: '111', status: 'pending' } });
+    organicLeadId = l1.id;
+    const l2 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L2', phone: '222', status: 'pending', agentId: agent.agentProfile.id } });
+    agentLeadId = l2.id;
+    const l3 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkgNoComm.id, departureId: departureNoComm.id, name: 'L3', phone: '333', status: 'pending', agentId: agent.agentProfile.id } });
+    noCommLeadId = l3.id;
+  });
+
+  it('1. Confirm lead DENGAN agentId, package.agentCommission terisi -> Commission ter-buat otomatis, status pending, amount SESUAI', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${agentLeadId}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    const comm = await prisma.commission.findUnique({ where: { leadId: agentLeadId } });
+    expect(comm).toBeDefined();
+    expect(comm?.status).toBe('pending');
+    expect(comm?.amount).toBe(1500000);
+    pendingCommissionId = comm!.id;
+  });
+
+  it('2. Confirm lead TANPA agentId (organik) -> TIDAK ADA Commission ter-buat', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${organicLeadId}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    const comm = await prisma.commission.findUnique({ where: { leadId: organicLeadId } });
+    expect(comm).toBeNull();
+  });
+
+  it('3. Confirm lead dengan agentId TAPI package.agentCommission NULL -> TIDAK ADA Commission ter-buat', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/api/leads/${noCommLeadId}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    expect(res.body.warning).toBe('Paket tidak memiliki konfigurasi komisi agen');
+
+    const comm = await prisma.commission.findUnique({ where: { leadId: noCommLeadId } });
+    expect(comm).toBeNull();
+  });
+
+  it('4. Cancel lead yang Commission-nya masih pending -> Commission ikut jadi cancelled', async () => {
+    const l4 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L4', phone: '444', status: 'pending', agentId: agent.agentProfile.id } });
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${l4.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${l4.id}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    const comm = await prisma.commission.findUnique({ where: { leadId: l4.id } });
+    expect(comm?.status).toBe('cancelled');
+  });
+
+  it('5. Cancel lead yang Commission-nya SUDAH paid -> Commission TETAP paid (tidak berubah), response ada field warning', async () => {
+    const l5 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L5', phone: '555', status: 'pending', agentId: agent.agentProfile.id } });
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${l5.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test');
+
+    const comm = await prisma.commission.findUnique({ where: { leadId: l5.id } });
+    await prisma.commission.update({ where: { id: comm!.id }, data: { status: 'paid', paidAt: new Date() } });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/api/leads/${l5.id}/cancel`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    expect(res.body.warning).toBe('Booking dibatalkan tapi komisi sudah terlanjur dibayar — perlu ditangani manual');
+    const commAfter = await prisma.commission.findUnique({ where: { leadId: l5.id } });
+    expect(commAfter?.status).toBe('paid');
+  });
+
+  it('6. PATCH /api/commissions/:id/mark-payable dari status pending -> 200, jadi payable', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/commissions/${pendingCommissionId}/mark-payable`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    const comm = await prisma.commission.findUnique({ where: { id: pendingCommissionId } });
+    expect(comm?.status).toBe('payable');
+  });
+
+  it('7. PATCH /api/commissions/:id/mark-payable dari status BUKAN pending (misal sudah payable) -> 400', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/commissions/${pendingCommissionId}/mark-payable`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(400);
+  });
+
+  it('8. PATCH /api/commissions/:id/mark-paid dari status payable -> 200, jadi paid, paidAt terisi', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/commissions/${pendingCommissionId}/mark-paid`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+
+    const comm = await prisma.commission.findUnique({ where: { id: pendingCommissionId } });
+    expect(comm?.status).toBe('paid');
+    expect(comm?.paidAt).not.toBeNull();
+  });
+
+  it('9. PATCH /api/commissions/:id/mark-paid dari status BUKAN payable -> 400', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/commissions/${pendingCommissionId}/mark-paid`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(400);
+  });
+
+  it('10. GET /api/commissions sebagai travel_admin -> lihat semua komisi tenant', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/commissions`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+      
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  it('11. GET /api/agent/commissions sebagai agent A -> HANYA lihat komisi milik sendiri, TIDAK lihat komisi agent lain di tenant yang sama', async () => {
+    const agent2 = await prisma.user.create({
+      data: {
+        email: 'agent2@tenanta.umrolink.test', passwordHash: '123', name: 'Agent 2', role: 'agent', tenantId: tenantA.id,
+        agentProfile: { create: { tenantId: tenantA.id, phone: '123', city: 'city', status: 'active', agentCode: 'AGT003' } }
+      },
+      include: { agentProfile: true }
+    });
+    
+    const l6 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L6', phone: '666', status: 'pending', agentId: agent2.agentProfile!.id } });
+    await request(app.getHttpServer())
+      .patch(`/api/leads/${l6.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+      
+    const res = await request(app.getHttpServer())
+      .get(`/api/agent/commissions`)
+      .set('Authorization', `Bearer ${agentToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(200);
+      
+    expect(res.body).toHaveProperty('commissions');
+    expect(res.body.commissions.every((c: any) => c.agentId === agent.agentProfile.id)).toBe(true);
+  });
+
+  it('12. GET /api/agent/commissions sebagai role travel_admin -> 403 (endpoint ini khusus agent)', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/agent/commissions`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test')
+      .expect(403);
+  });
+
+  it('13. Cross-tenant: travel_admin Hijaz coba mark-paid komisi milik Barokah -> 404', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/commissions/${pendingCommissionId}/mark-paid`)
+      .set('Authorization', `Bearer ${adminTokenB}`)
+      .set('Host', 'tenantb.umrolink.test')
+      .expect(404);
+  });
+});
