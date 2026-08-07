@@ -38,7 +38,6 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       });
 
       if (!tenant) {
-        console.log('TENANT MIDDLEWARE 404:', { host, subdomain, dbUrl: process.env.DATABASE_URL });
         return res.status(404).json({ error: 'Tenant tidak ditemukan' });
       }
 
