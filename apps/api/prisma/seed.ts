@@ -94,7 +94,7 @@ async function main() {
   });
 
   // Ensure agentProfile always exists for agentBarokah
-  await prisma.agentProfile.upsert({
+  const agentProfileBarokah = await prisma.agentProfile.upsert({
     where: { userId: agentBarokah.id },
     update: { status: 'active', agentCode: 'BTT001', city: 'Kota Bandung' },
     create: {
@@ -413,33 +413,72 @@ async function main() {
     }
   });
 
-  console.log('Seeding leads...');
+  console.log('Seeding leads and commissions...');
+  await prisma.commission.deleteMany();
   await prisma.lead.deleteMany(); // clean up first
-  await prisma.lead.createMany({
+  
+  const lead1 = await prisma.lead.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg1.id,
+      departureId: dep1.id,
+      agentId: agentProfileBarokah.id,
+      name: 'Hamba Allah',
+      phone: '081234567890',
+      status: 'confirmed',
+      confirmedAt: new Date(),
+    }
+  });
+
+  const lead2 = await prisma.lead.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg1.id,
+      departureId: dep1.id,
+      agentId: agentProfileBarokah.id,
+      name: 'Fulan',
+      phone: '081234567891',
+      status: 'confirmed',
+      confirmedAt: new Date(),
+    }
+  });
+
+  const lead3 = await prisma.lead.create({
+    data: {
+      tenantId: tenantA.id,
+      packageId: pkg2.id,
+      departureId: dep3.id,
+      agentId: agentProfileBarokah.id,
+      name: 'Fulanah',
+      phone: '081234567892',
+      status: 'confirmed',
+      confirmedAt: new Date(),
+    }
+  });
+
+  await prisma.commission.createMany({
     data: [
       {
         tenantId: tenantA.id,
-        packageId: pkg1.id,
-        departureId: dep1.id,
-        name: 'Hamba Allah',
-        phone: '081234567890',
-        status: 'confirmed',
-      },
-      {
-        tenantId: tenantA.id,
-        packageId: pkg1.id,
-        departureId: dep1.id,
-        name: 'Fulan',
-        phone: '081234567891',
+        leadId: lead1.id,
+        agentId: agentProfileBarokah.id,
+        amount: pkg1.agentCommission || 0,
         status: 'pending',
       },
       {
         tenantId: tenantA.id,
-        packageId: pkg2.id,
-        departureId: dep3.id,
-        name: 'Fulanah',
-        phone: '081234567892',
-        status: 'confirmed',
+        leadId: lead2.id,
+        agentId: agentProfileBarokah.id,
+        amount: pkg1.agentCommission || 0,
+        status: 'payable',
+      },
+      {
+        tenantId: tenantA.id,
+        leadId: lead3.id,
+        agentId: agentProfileBarokah.id,
+        amount: pkg2.agentCommission || 0,
+        status: 'paid',
+        paidAt: new Date(),
       }
     ]
   });
