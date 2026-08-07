@@ -13,6 +13,8 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { LeadsModule } from './leads/leads.module';
 
+import { CommissionsModule } from './commissions/commissions.module';
+
 @Module({
   imports: [
     TenancyModule,
@@ -21,6 +23,7 @@ import { LeadsModule } from './leads/leads.module';
     PublicModule,
     AgentsModule,
     LeadsModule,
+    CommissionsModule,
   ],
   controllers: [AppController],
   providers: [
