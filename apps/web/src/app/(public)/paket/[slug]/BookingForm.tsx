@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@umrolink/ui/src/Button';
 import { Input } from '@umrolink/ui/src/Input';
 import { submitLead } from './actions';
-import { cn } from '@umrolink/ui/src/utils/cn';
+import { cn } from '@umrolink/ui/src/utils';
 
 interface Departure {
   id: string;
