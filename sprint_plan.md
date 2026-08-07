@@ -17,7 +17,7 @@
 | 4 | Web Publik Tenant | **Selesai** | Landing, detail paket, brand color, slug SEO, sanitasi XSS, route group isolation |
 | 5 | Registrasi & Approval Agen | **Selesai** | Kode agen unik per tenant |
 | 6 | Atribusi Referral | **Selesai** | Cookie 30 hari, lock atribusi |
-| 7 | Booking & Kuota | Belum mulai | Lead tanpa cek kuota, confirm-time check |
+| 7 | Booking & Kuota | **Selesai** | Kuota per tanggal keberangkatan, SERIALIZABLE tx, 15 E2E scenarios |
 | 8 | Komisi | Belum mulai | Auto-generate komisi, dashboard agen |
 | 9 | Dashboard Travel Admin Lanjutan | Belum mulai | Kelola booking & status |
 | 10 | Dashboard Agent Lanjutan | Belum mulai | Statistik referral, copy-link |
@@ -164,18 +164,28 @@
 
 ---
 
-## Sprint 7 — Booking & Kuota
-
-**Goal:** Calon jamaah selalu bisa mendaftar; kuota hanya menghalangi di titik konfirmasi, bukan di titik pendaftaran.
+**Goal:** Calon jamaah bisa mendaftar; kuota ketat per tanggal keberangkatan, dihitung dari booking berstatus `confirmed` saja. Status `SOLD` memblokir pendaftaran baru. Tidak ada waitlist.
 
 **Scope:**
-- Form booking publik → lead tercipta dengan atribusi terkunci, tanpa cek kuota
-- Service status booking (state machine eksplisit) — kuota dicek saat Travel Admin confirm
-- Status waitlist untuk booking yang melebihi kuota saat confirm
+- Form booking publik → lead tercipta dengan status `pending` dan atribusi terkunci; cek kuota + status `SOLD` dilakukan di titik ini
+- Service confirm booking dengan `$transaction` SERIALIZABLE isolation untuk mencegah race condition overbooking
+- Endpoint cancel booking (kembali buka slot kuota)
+- Dashboard admin: list booking, aksi confirm, aksi cancel
+- Indikator `isSold`/`isPast` di halaman publik detail paket
 
 **Definition of Done:**
-- [ ] Booking baru selalu tersimpan di titik pendaftaran walau paket sudah penuh
-- [ ] Penolakan kuota hanya terjadi di titik konfirmasi dan menghasilkan status waitlist, bukan booking hilang
+- [x] Booking baru ditolak 409 jika keberangkatan sudah SOLD (semua slot confirmed)
+- [x] Booking baru ditolak 400 jika tanggal keberangkatan sudah lewat
+- [x] Penolakan kuota terjadi di titik konfirmasi dengan 409, bukan 500
+- [x] Race condition: dua confirm bersamaan pada kuota sisa 1 — tepat satu 200, satu 409 (assert ketat, tidak terima 500)
+- [x] Cross-tenant: booking publik dan confirm ke data tenant lain → 404
+- [x] Cancel membebaskan slot dan booking pengganti bisa masuk
+- [x] Role agent tidak bisa akses GET /api/leads → 403
+- [x] 15 skenario E2E otomatis lulus (`booking.e2e-spec.ts`)
+- [x] Tenancy test tetap 3/3 setelah semua perubahan middleware (`tenancy.e2e-spec.ts`)
+- [x] Debug `console.log` yang mencantumkan `DATABASE_URL` dihapus dari middleware
+
+**Branch:** `sprint-7/booking-kuota` | **Commit terakhir:** `f36cbfb`
 
 ---
 
@@ -258,3 +268,4 @@
 | Tanggal | Perubahan |
 |---|---|
 | 2026-08-03 | Draft awal roadmap 15 sprint untuk stack Node.js/TypeScript |
+| 2026-08-07 | Sprint 7 selesai: Booking & Kuota — 15 E2E scenarios, SERIALIZABLE tx, race condition proof, debug log security fix |
