@@ -21,6 +21,7 @@ import {
   ModalTitle,
   ModalDescription,
   ModalFooter,
+  Select,
 } from '@umrolink/ui';
 import Link from 'next/link';
 import { useUser } from '../layout';
@@ -190,16 +191,15 @@ export default function PackagesPage() {
         </div>
 
         {/* Status filter — native select */}
-        <select
+        <Select
           id="packages-status-filter"
           value={status}
           onChange={(e) => handleStatusChange(e.target.value)}
-          className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20 transition-[border-color,box-shadow]"
         >
           <option value="all">Semua Status</option>
           <option value="published">Published</option>
           <option value="draft">Draft</option>
-        </select>
+        </Select>
       </div>
 
       {/* Total info */}

@@ -10,4 +10,5 @@ export * from './Alert';
 export * from './RichTextEditor';
 export * from './Pagination';
 export * from './Combobox';
+export * from './Select';
 export * from './utils';

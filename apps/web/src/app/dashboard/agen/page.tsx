@@ -20,6 +20,7 @@ import {
   ModalTitle,
   ModalDescription,
   ModalFooter,
+  Select,
 } from '@umrolink/ui';
 import { useUser } from '../layout';
 import { PageContainer } from '../_components/PageContainer';
@@ -158,16 +159,16 @@ export default function AgenPage() {
 
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20 transition-[border-color,box-shadow] w-full sm:w-48"
+          className="w-full sm:w-48"
         >
           <option value="all">Semua Status</option>
           <option value="pending">Menunggu Persetujuan</option>
           <option value="active">Aktif</option>
           <option value="inactive">Nonaktif</option>
-        </select>
+        </Select>
       </div>
 
       {/* Desktop: tabel */}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Button, Input, Card, Alert, RichTextEditor } from '@umrolink/ui';
+import { Button, Input, Card, Alert, RichTextEditor, Select } from '@umrolink/ui';
 import Link from 'next/link';
 import { Plus, Trash2, Upload, ImageIcon, ArrowLeft, Plane, Building2, ListChecks, DollarSign, CalendarDays, ExternalLink, Wallet } from 'lucide-react';
 import { PageContainer } from '../../../_components/PageContainer';
@@ -397,14 +397,13 @@ export default function EditPackagePage() {
               <h3 className="text-sm font-semibold text-neutral-900 mb-3">Publikasi</h3>
               <div className="mb-4">
                 <label className="block text-xs font-medium text-neutral-500 mb-1.5">Status Paket</label>
-                <select
+                <Select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
-                  className="w-full h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20 transition-[border-color,box-shadow]"
                 >
                   <option value="draft">Draft (Sembunyikan dari Publik)</option>
                   <option value="published">Published (Tampilkan ke Publik)</option>
-                </select>
+                </Select>
               </div>
               <Button type="submit" className="w-full" disabled={saving}>
                 {saving ? 'Menyimpan...' : 'Simpan Perubahan'}

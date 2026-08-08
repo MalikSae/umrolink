@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { PageContainer } from '../_components/PageContainer';
-import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@umrolink/ui';
+import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Select } from '@umrolink/ui';
 import Link from 'next/link';
 
 export default function DeparturesClientPage() {
@@ -209,39 +209,39 @@ export default function DeparturesClientPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <select
+        <Select
           value={filterMonth}
           onChange={(e) => setFilterMonth(e.target.value)}
-          className="flex-1 h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+          className="flex-1"
         >
           <option value="all">Semua Bulan</option>
           {monthOptions.map(m => (
             <option key={m.key} value={m.key}>{m.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={filterPackage}
           onChange={(e) => setFilterPackage(e.target.value)}
-          className="flex-1 h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+          className="flex-1"
         >
           <option value="all">Semua Paket</option>
           {packageOptions.map(p => (
             <option key={p} value={p}>{p}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="flex-1 h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+          className="flex-1"
         >
           <option value="all">Semua Status</option>
           <option value="available">Tersedia</option>
           <option value="near-full">Hampir Penuh</option>
           <option value="sold">Penuh</option>
           <option value="past">Sudah Lewat</option>
-        </select>
+        </Select>
       </div>
 
       <Card className={`overflow-hidden p-0 hidden md:block transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -366,11 +366,10 @@ export default function DeparturesClientPage() {
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
               Pilih Paket Umroh
             </label>
-            <select
+            <Select
               required
               value={formData.packageId}
               onChange={(e) => setFormData({ ...formData, packageId: e.target.value })}
-              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-md focus:outline-none focus:ring-2 focus:ring-tenant-primary/20 focus:border-tenant-primary bg-white text-sm"
               disabled={submitting}
             >
               <option value="">-- Pilih Paket --</option>
@@ -379,7 +378,7 @@ export default function DeparturesClientPage() {
                   {pkg.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
