@@ -18,10 +18,13 @@ import {
   Modal,
   ModalContent,
   ModalHeader,
-  ModalTitle,
   ModalDescription,
   ModalFooter,
   Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@umrolink/ui';
 import Link from 'next/link';
 import { useUser } from '../layout';
@@ -192,13 +195,17 @@ export default function PackagesPage() {
 
         {/* Status filter — native select */}
         <Select
-          id="packages-status-filter"
           value={status}
-          onChange={(e) => handleStatusChange(e.target.value)}
+          onValueChange={handleStatusChange}
         >
-          <option value="all">Semua Status</option>
-          <option value="published">Published</option>
-          <option value="draft">Draft</option>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="Pilih Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Status</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 

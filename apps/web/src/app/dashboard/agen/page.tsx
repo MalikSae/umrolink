@@ -17,10 +17,13 @@ import {
   Modal,
   ModalContent,
   ModalHeader,
-  ModalTitle,
   ModalDescription,
   ModalFooter,
   Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@umrolink/ui';
 import { useUser } from '../layout';
 import { PageContainer } from '../_components/PageContainer';
@@ -161,13 +164,17 @@ export default function AgenPage() {
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <Select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-full sm:w-48"
+          onValueChange={setStatusFilter}
         >
-          <option value="all">Semua Status</option>
-          <option value="pending">Menunggu Persetujuan</option>
-          <option value="active">Aktif</option>
-          <option value="inactive">Nonaktif</option>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="Pilih Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Status</SelectItem>
+            <SelectItem value="pending">Menunggu Persetujuan</SelectItem>
+            <SelectItem value="active">Aktif</SelectItem>
+            <SelectItem value="inactive">Nonaktif</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 

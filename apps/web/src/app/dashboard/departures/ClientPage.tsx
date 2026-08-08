@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { PageContainer } from '../_components/PageContainer';
-import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Select } from '@umrolink/ui';
+import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@umrolink/ui';
 import Link from 'next/link';
 
 export default function DeparturesClientPage() {
@@ -209,38 +209,41 @@ export default function DeparturesClientPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <Select
-          value={filterMonth}
-          onChange={(e) => setFilterMonth(e.target.value)}
-          className="flex-1"
-        >
-          <option value="all">Semua Bulan</option>
-          {monthOptions.map(m => (
-            <option key={m.key} value={m.key}>{m.label}</option>
-          ))}
+        <Select value={filterMonth} onValueChange={setFilterMonth}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Semua Bulan" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Bulan</SelectItem>
+            {monthOptions.map(m => (
+              <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
         </Select>
 
-        <Select
-          value={filterPackage}
-          onChange={(e) => setFilterPackage(e.target.value)}
-          className="flex-1"
-        >
-          <option value="all">Semua Paket</option>
-          {packageOptions.map(p => (
-            <option key={p} value={p}>{p}</option>
-          ))}
+        <Select value={filterPackage} onValueChange={setFilterPackage}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Semua Paket" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Paket</SelectItem>
+            {packageOptions.map(p => (
+              <SelectItem key={p} value={p}>{p}</SelectItem>
+            ))}
+          </SelectContent>
         </Select>
 
-        <Select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="flex-1"
-        >
-          <option value="all">Semua Status</option>
-          <option value="available">Tersedia</option>
-          <option value="near-full">Hampir Penuh</option>
-          <option value="sold">Penuh</option>
-          <option value="past">Sudah Lewat</option>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Semua Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Status</SelectItem>
+            <SelectItem value="available">Tersedia</SelectItem>
+            <SelectItem value="near-full">Hampir Penuh</SelectItem>
+            <SelectItem value="sold">Penuh</SelectItem>
+            <SelectItem value="past">Sudah Lewat</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 
@@ -369,15 +372,19 @@ export default function DeparturesClientPage() {
             <Select
               required
               value={formData.packageId}
-              onChange={(e) => setFormData({ ...formData, packageId: e.target.value })}
+              onValueChange={(value) => setFormData({ ...formData, packageId: value })}
               disabled={submitting}
             >
-              <option value="">-- Pilih Paket --</option>
-              {packages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>
-                  {pkg.name}
-                </option>
-              ))}
+              <SelectTrigger>
+                <SelectValue placeholder="-- Pilih Paket --" />
+              </SelectTrigger>
+              <SelectContent>
+                {packages.map((pkg) => (
+                  <SelectItem key={pkg.id} value={pkg.id}>
+                    {pkg.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
