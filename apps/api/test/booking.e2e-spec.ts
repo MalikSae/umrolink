@@ -40,6 +40,7 @@ describe('Booking (e2e)', () => {
 
     if (testTenantIds.length > 0) {
       await prisma.commission.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.leadRoomAllocation.deleteMany({ where: { tenantId: { in: testTenantIds } } });
       await prisma.lead.deleteMany({ where: { tenantId: { in: testTenantIds } } });
       await prisma.packageDeparture.deleteMany({ where: { tenantId: { in: testTenantIds } } });
       await prisma.package.deleteMany({ where: { tenantId: { in: testTenantIds } } });
@@ -176,12 +177,12 @@ describe('Booking (e2e)', () => {
     expect(dep.isSold).toBe(false);
   });
 
-  // Scenario 3: Admin konfirmasi booking 1
-  it('3. PATCH /api/leads/:id/confirm - sukses confirm booking 1', async () => {
+  // Scenario 3: Admin konfirmasi booking 1 -- SEKARANG pakai mark-dp-received
+  it('3. PATCH /api/leads/:id/mark-dp-received - sukses konfirmasi booking 1', async () => {
     const leads = await prisma.lead.findMany({ where: { departureId: departure1.id } });
 
     await request(app.getHttpServer())
-      .patch(`/api/leads/${leads[0].id}/confirm`)
+      .patch(`/api/leads/${leads[0].id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
@@ -206,12 +207,12 @@ describe('Booking (e2e)', () => {
     expect(res.status).toBe(201);
   });
 
-  // Scenario 5: Admin konfirmasi booking 2 (quota 2 penuh)
-  it('5. PATCH /api/leads/:id/confirm - sukses confirm booking 2 (kuota jadi penuh)', async () => {
+  // Scenario 5: Admin konfirmasi booking 2 (quota 2 penuh) -- SEKARANG pakai mark-dp-received
+  it('5. PATCH /api/leads/:id/mark-dp-received - sukses konfirmasi booking 2 (kuota jadi penuh)', async () => {
     const lead = await prisma.lead.findFirst({ where: { name: 'Jane Doe' } });
 
     await request(app.getHttpServer())
-      .patch(`/api/leads/${lead.id}/confirm`)
+      .patch(`/api/leads/${lead.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(200);
@@ -243,7 +244,7 @@ describe('Booking (e2e)', () => {
 
   // Scenario 8: Admin gagal konfirmasi booking kalau kuota penuh
   // Untuk test ini, kita insert lead "pending" manual by prisma
-  it('8. PATCH /api/leads/:id/confirm - gagal karena kuota penuh', async () => {
+  it('8. PATCH /api/leads/:id/mark-dp-received - gagal karena kuota penuh', async () => {
     const lead3 = await prisma.lead.create({
       data: {
         tenantId: tenantA.id,
@@ -251,17 +252,18 @@ describe('Booking (e2e)', () => {
         departureId: departure1.id,
         name: 'Pending Bypass',
         phone: '08126',
-        status: 'pending'
+        status: 'pending',
+        totalJamaah: 1
       }
     });
 
     const res = await request(app.getHttpServer())
-      .patch(`/api/leads/${lead3.id}/confirm`)
+      .patch(`/api/leads/${lead3.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .expect(409); // 409 Conflict from LeadsService
 
-    expect(res.body.message).toContain('Kuota keberangkatan sudah penuh');
+    expect(res.body.message).toContain('Kuota tanggal keberangkatan ini tidak cukup');
   });
 
   // Scenario 9: Booking ke paket past
@@ -295,7 +297,7 @@ describe('Booking (e2e)', () => {
   });
 
   // Scenario 11: Race condition test (2 pending confirmed at same time for 1 quota)
-  it('11. Race condition - dua confirm request bersamaan saat kuota sisa 1 (TIDAK BOLEH overbooking)', async () => {
+  it('11. Race condition - dua mark-dp-received request bersamaan saat kuota sisa 1 (TIDAK BOLEH overbooking)', async () => {
     // We create a new departure with quota 1
     const raceDep = await prisma.packageDeparture.create({
       data: {
@@ -307,21 +309,21 @@ describe('Booking (e2e)', () => {
     });
 
     const lead1 = await prisma.lead.create({
-      data: { tenantId: tenantA.id, packageId: pkg.id, departureId: raceDep.id, name: 'Race 1', phone: '08128', status: 'pending' }
+      data: { tenantId: tenantA.id, packageId: pkg.id, departureId: raceDep.id, name: 'Race 1', phone: '08128', status: 'pending', totalJamaah: 1 }
     });
     const lead2 = await prisma.lead.create({
-      data: { tenantId: tenantA.id, packageId: pkg.id, departureId: raceDep.id, name: 'Race 2', phone: '08129', status: 'pending' }
+      data: { tenantId: tenantA.id, packageId: pkg.id, departureId: raceDep.id, name: 'Race 2', phone: '08129', status: 'pending', totalJamaah: 1 }
     });
 
     // Run simultaneously
     const req1 = request(app.getHttpServer())
-      .patch(`/api/leads/${lead1.id}/confirm`)
+      .patch(`/api/leads/${lead1.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .send();
 
     const req2 = request(app.getHttpServer())
-      .patch(`/api/leads/${lead2.id}/confirm`)
+      .patch(`/api/leads/${lead2.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'tenanta.umrolink.test')
       .send();
@@ -388,14 +390,27 @@ describe('Booking (e2e)', () => {
   });
 
   // Scenario 15: Cross-tenant confirmation 404
-  it('15. PATCH /api/leads/:id/confirm cross-tenant -> 404', async () => {
+  it('15. PATCH /api/leads/:id/mark-dp-received cross-tenant -> 404', async () => {
     const lead = await prisma.lead.findFirst({ where: { name: 'John Doe' } });
 
     // Try to confirm tenantA's lead using tenantB's admin
     await request(app.getHttpServer())
-      .patch(`/api/leads/${lead.id}/confirm`)
+      .patch(`/api/leads/${lead.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminTokenB}`)
       .set('Host', 'tenantb.umrolink.test')
       .expect(404);
+  });
+
+  // Scenario 16 (BARU): Endpoint lama /confirm sudah dihapus -> 404 (route tidak ada)
+  it('16. PATCH /api/leads/:id/confirm (endpoint LAMA yang dihapus) -> 404 Not Found', async () => {
+    const lead = await prisma.lead.findFirst({ where: { name: 'John Doe' } });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/api/leads/${lead.id}/confirm`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Host', 'tenanta.umrolink.test');
+
+    // Route tidak ada lagi -- NestJS returns 404 untuk unregistered routes
+    expect(res.status).toBe(404);
   });
 });

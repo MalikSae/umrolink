@@ -41,6 +41,7 @@ describe('Commission (e2e)', () => {
 
     if (testTenantIds.length > 0) {
       await prisma.commission.deleteMany({ where: { tenantId: { in: testTenantIds } } });
+      await prisma.leadRoomAllocation.deleteMany({ where: { tenantId: { in: testTenantIds } } });
       await prisma.lead.deleteMany({ where: { tenantId: { in: testTenantIds } } });
       await prisma.packageDeparture.deleteMany({ where: { tenantId: { in: testTenantIds } } });
       await prisma.package.deleteMany({ where: { tenantId: { in: testTenantIds } } });
@@ -87,17 +88,17 @@ describe('Commission (e2e)', () => {
   let pendingCommissionId: string;
 
   beforeAll(async () => {
-    const l1 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L1', phone: '111', status: 'pending' } });
+    const l1 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L1', phone: '111', status: 'pending', totalJamaah: 1 } });
     organicLeadId = l1.id;
-    const l2 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L2', phone: '222', status: 'pending', agentId: agent.agentProfile.id } });
+    const l2 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L2', phone: '222', status: 'pending', agentId: agent.agentProfile.id, totalJamaah: 1 } });
     agentLeadId = l2.id;
-    const l3 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkgNoComm.id, departureId: departureNoComm.id, name: 'L3', phone: '333', status: 'pending', agentId: agent.agentProfile.id } });
+    const l3 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkgNoComm.id, departureId: departureNoComm.id, name: 'L3', phone: '333', status: 'pending', agentId: agent.agentProfile.id, totalJamaah: 1 } });
     noCommLeadId = l3.id;
   });
 
-  it('1. Confirm lead DENGAN agentId, package.agentCommission terisi -> Commission ter-buat otomatis, status pending, amount SESUAI', async () => {
+  it('1. mark-dp-received lead DENGAN agentId, package.agentCommission terisi -> Commission ter-buat otomatis, status pending, amount SESUAI (totalJamaah=1)', async () => {
     await request(app.getHttpServer())
-      .patch(`/api/leads/${agentLeadId}/confirm`)
+      .patch(`/api/leads/${agentLeadId}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
@@ -105,13 +106,14 @@ describe('Commission (e2e)', () => {
     const comm = await prisma.commission.findUnique({ where: { leadId: agentLeadId } });
     expect(comm).toBeDefined();
     expect(comm?.status).toBe('pending');
+    // totalJamaah=1, agentCommission=1500000 -> amount = 1500000 * 1 = 1500000
     expect(comm?.amount).toBe(1500000);
     pendingCommissionId = comm!.id;
   });
 
-  it('2. Confirm lead TANPA agentId (organik) -> TIDAK ADA Commission ter-buat', async () => {
+  it('2. mark-dp-received lead TANPA agentId (organik) -> TIDAK ADA Commission ter-buat', async () => {
     await request(app.getHttpServer())
-      .patch(`/api/leads/${organicLeadId}/confirm`)
+      .patch(`/api/leads/${organicLeadId}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
@@ -120,9 +122,9 @@ describe('Commission (e2e)', () => {
     expect(comm).toBeNull();
   });
 
-  it('3. Confirm lead dengan agentId TAPI package.agentCommission NULL -> TIDAK ADA Commission ter-buat', async () => {
+  it('3. mark-dp-received lead dengan agentId TAPI package.agentCommission NULL -> TIDAK ADA Commission ter-buat', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/api/leads/${noCommLeadId}/confirm`)
+      .patch(`/api/leads/${noCommLeadId}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
@@ -134,9 +136,9 @@ describe('Commission (e2e)', () => {
   });
 
   it('4. Cancel lead yang Commission-nya masih pending -> Commission ikut jadi cancelled', async () => {
-    const l4 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L4', phone: '444', status: 'pending', agentId: agent.agentProfile.id } });
+    const l4 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L4', phone: '444', status: 'pending', agentId: agent.agentProfile.id, totalJamaah: 1 } });
     await request(app.getHttpServer())
-      .patch(`/api/leads/${l4.id}/confirm`)
+      .patch(`/api/leads/${l4.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
@@ -152,9 +154,9 @@ describe('Commission (e2e)', () => {
   });
 
   it('5. Cancel lead yang Commission-nya SUDAH paid -> Commission TETAP paid (tidak berubah), response ada field warning', async () => {
-    const l5 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L5', phone: '555', status: 'pending', agentId: agent.agentProfile.id } });
+    const l5 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L5', phone: '555', status: 'pending', agentId: agent.agentProfile.id, totalJamaah: 1 } });
     await request(app.getHttpServer())
-      .patch(`/api/leads/${l5.id}/confirm`)
+      .patch(`/api/leads/${l5.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'commtenanta.umrolink.test');
 
@@ -231,9 +233,9 @@ describe('Commission (e2e)', () => {
       include: { agentProfile: true }
     });
 
-    const l6 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L6', phone: '666', status: 'pending', agentId: agent2.agentProfile!.id } });
+    const l6 = await prisma.lead.create({ data: { tenantId: tenantA.id, packageId: pkg1.id, departureId: departure1.id, name: 'L6', phone: '666', status: 'pending', agentId: agent2.agentProfile!.id, totalJamaah: 1 } });
     await request(app.getHttpServer())
-      .patch(`/api/leads/${l6.id}/confirm`)
+      .patch(`/api/leads/${l6.id}/mark-dp-received`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Host', 'commtenanta.umrolink.test')
       .expect(200);
