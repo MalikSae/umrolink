@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PageContainer } from '../_components/PageContainer';
-import { Button, Modal, Input, Badge } from '@umrolink/ui';
+import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge } from '@umrolink/ui';
 import Link from 'next/link';
 
 export default function DeparturesClientPage() {
@@ -194,10 +194,15 @@ export default function DeparturesClientPage() {
       </div>
 
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => !submitting && setIsModalOpen(false)}
-        title="Tambah Keberangkatan"
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          if (!submitting) setIsModalOpen(open);
+        }}
       >
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Tambah Keberangkatan</ModalTitle>
+          </ModalHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
@@ -258,6 +263,7 @@ export default function DeparturesClientPage() {
             </Button>
           </div>
         </form>
+        </ModalContent>
       </Modal>
     </PageContainer>
   );
