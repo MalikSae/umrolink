@@ -1,49 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { PageContainer } from '../_components/PageContainer';
-import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Pagination } from '@umrolink/ui';
+import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@umrolink/ui';
 import Link from 'next/link';
-import { Search, X } from 'lucide-react';
 
 export default function DeparturesClientPage() {
-  const [departures, setDepartures] = useState<any[]>([]);
-  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
+  const [allDepartures, setAllDepartures] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [status, setStatus] = useState('all');
-  const [page, setPage] = useState(1);
+
+  // Filters
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterPackage, setFilterPackage] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  // Highlight new row
+  const [newRowId, setNewRowId] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ packageId: '', departureDate: '', quota: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [search]);
-
   const fetchDepartures = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: '10',
-      });
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      if (status !== 'all') params.set('status', status);
-
-      const res = await fetch(`/api/departures?${params.toString()}`);
+      const res = await fetch('/api/departures?limit=10000');
       const json = await res.json();
       if (res.ok) {
-        setDepartures(json.data || []);
-        setMeta(json.meta || { total: 0, page: 1, limit: 10, totalPages: 1 });
+        setAllDepartures(json.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -54,21 +39,90 @@ export default function DeparturesClientPage() {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch('/api/packages?limit=100'); // Assuming we want all active packages
+      const res = await fetch('/api/packages?limit=10000');
       const json = await res.json();
-      setPackages(json.data || []);
+      if (res.ok) {
+        setPackages(json.data || []);
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    fetchDepartures();
-  }, [page, debouncedSearch, status]);
-
-  useEffect(() => {
-    fetchPackages();
+    Promise.all([fetchDepartures(), fetchPackages()]).finally(() => {
+      setLoading(false);
+    });
   }, []);
+
+  // Compute 4-level status for a departure
+  const getDepartureStatus4 = (dep: any) => {
+    const isPast = new Date(dep.departureDate) < new Date();
+    if (isPast) return 'past';
+    const remaining = dep.quota - dep.confirmedCount;
+    if (remaining <= 0) return 'sold';
+    if (remaining <= 3 || remaining <= dep.quota * 0.1) return 'near-full';
+    return 'available';
+  };
+
+  // Enhance all departures with computed properties
+  const enrichedDepartures = useMemo(() => {
+    return allDepartures.map(dep => ({
+      ...dep,
+      status4: getDepartureStatus4(dep)
+    }));
+  }, [allDepartures]);
+
+  // Derived filter options
+  const monthOptions = useMemo(() => {
+    const months = new Map();
+    enrichedDepartures.forEach(dep => {
+      const d = new Date(dep.departureDate);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      if (!months.has(key)) {
+        months.set(key, { key, label, timestamp: d.getTime() });
+      }
+    });
+    return Array.from(months.values()).sort((a, b) => a.timestamp - b.timestamp);
+  }, [enrichedDepartures]);
+
+  const packageOptions = useMemo(() => {
+    const pkgs = new Set();
+    enrichedDepartures.forEach(dep => {
+      if (dep.package?.name) {
+        pkgs.add(dep.package.name);
+      }
+    });
+    return Array.from(pkgs).sort() as string[];
+  }, [enrichedDepartures]);
+
+  // Filtered array
+  const filteredDepartures = useMemo(() => {
+    return enrichedDepartures.filter(dep => {
+      const d = new Date(dep.departureDate);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (filterMonth !== 'all' && monthKey !== filterMonth) return false;
+      if (filterPackage !== 'all' && dep.package?.name !== filterPackage) return false;
+      if (filterStatus !== 'all' && dep.status4 !== filterStatus) return false;
+      
+      return true;
+    });
+  }, [enrichedDepartures, filterMonth, filterPackage, filterStatus]);
+
+  // Auto-fill quota when packageId changes
+  useEffect(() => {
+    if (formData.packageId) {
+      const existing = allDepartures
+        .filter(d => d.packageId === formData.packageId)
+        .sort((a, b) => new Date(b.departureDate).getTime() - new Date(a.departureDate).getTime());
+      
+      if (existing.length > 0) {
+        setFormData(prev => ({ ...prev, quota: String(existing[0].quota) }));
+      }
+    }
+  }, [formData.packageId, allDepartures]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,9 +144,12 @@ export default function DeparturesClientPage() {
       });
 
       if (res.ok) {
+        const newData = await res.json();
         setIsModalOpen(false);
         setFormData({ packageId: '', departureDate: '', quota: '' });
-        fetchDepartures();
+        await fetchDepartures();
+        setNewRowId(newData.id);
+        setTimeout(() => setNewRowId(null), 2500); // clear highlight after 2.5s
       } else {
         const error = await res.json();
         alert(error.message || 'Gagal menambahkan keberangkatan');
@@ -110,6 +167,26 @@ export default function DeparturesClientPage() {
       month: 'long',
       year: 'numeric'
     });
+  };
+
+  const getStatusBadge = (status4: string) => {
+    switch (status4) {
+      case 'past': return <Badge variant="secondary">Sudah Lewat</Badge>;
+      case 'sold': return <Badge variant="error">Penuh</Badge>;
+      case 'near-full': return <Badge variant="warning">Hampir Penuh</Badge>;
+      case 'available': return <Badge variant="success">Tersedia</Badge>;
+      default: return null;
+    }
+  };
+
+  const getStatusColorClass = (status4: string) => {
+    switch (status4) {
+      case 'past': return 'bg-neutral-400';
+      case 'sold': return 'bg-tenant-error';
+      case 'near-full': return 'bg-tenant-warning';
+      case 'available': return 'bg-tenant-success';
+      default: return 'bg-tenant-primary';
+    }
   };
 
   if (loading) {
@@ -131,55 +208,41 @@ export default function DeparturesClientPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <div className="flex-1">
-          <Input
-            id="departures-search"
-            placeholder="Cari nama paket..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
-            rightIcon={
-              search ? (
-                <button
-                  onClick={() => {
-                    setSearch('');
-                    setPage(1);
-                  }}
-                  className="text-neutral-400 hover:text-neutral-600 transition-colors"
-                  aria-label="Hapus pencarian"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : undefined
-            }
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <select
+          value={filterMonth}
+          onChange={(e) => setFilterMonth(e.target.value)}
+          className="flex-1 h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+        >
+          <option value="all">Semua Bulan</option>
+          {monthOptions.map(m => (
+            <option key={m.key} value={m.key}>{m.label}</option>
+          ))}
+        </select>
 
         <select
-          id="departures-status-filter"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-          className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+          value={filterPackage}
+          onChange={(e) => setFilterPackage(e.target.value)}
+          className="flex-1 h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+        >
+          <option value="all">Semua Paket</option>
+          {packageOptions.map(p => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="flex-1 h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
         >
           <option value="all">Semua Status</option>
           <option value="available">Tersedia</option>
+          <option value="near-full">Hampir Penuh</option>
           <option value="sold">Penuh</option>
           <option value="past">Sudah Lewat</option>
         </select>
       </div>
-
-      {!loading && (
-        <p className="text-sm text-neutral-500 mb-3">
-          {meta.total} keberangkatan ditemukan
-          {debouncedSearch && (
-            <span> untuk &ldquo;<span className="font-medium text-neutral-700">{debouncedSearch}</span>&rdquo;</span>
-          )}
-        </p>
-      )}
 
       <Card className={`overflow-hidden p-0 hidden md:block transition-opacity ${loading ? 'opacity-60' : ''}`}>
         <Table>
@@ -187,100 +250,106 @@ export default function DeparturesClientPage() {
             <TableRow>
               <TableHead>Tgl Keberangkatan</TableHead>
               <TableHead>Paket Terkait</TableHead>
-              <TableHead>Total Seat</TableHead>
-              <TableHead>Booked</TableHead>
-              <TableHead>Seat Tersisa</TableHead>
+              <TableHead>Kapasitas</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!loading && departures.length === 0 && (
+            {filteredDepartures.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-neutral-500 py-10">
-                  Belum ada data keberangkatan.
+                <TableCell colSpan={4} className="text-center text-neutral-500 py-10">
+                  Belum ada data keberangkatan yang sesuai.
                 </TableCell>
               </TableRow>
             )}
-            {departures.map((dep) => (
-              <TableRow key={dep.id}>
-                <TableCell className="font-medium">
-                  {formatDate(dep.departureDate)}
-                </TableCell>
-                <TableCell>
-                  <Link href={`/dashboard/packages/${dep.packageId}/edit`} className="text-tenant-primary hover:underline">
-                    {dep.package?.name || 'Paket tidak ditemukan'}
-                  </Link>
-                </TableCell>
-                <TableCell>{dep.quota}</TableCell>
-                <TableCell>{dep.confirmedCount}</TableCell>
-                <TableCell className="font-semibold">{dep.remaining}</TableCell>
-                <TableCell>
-                  <Badge 
-                    variant={dep.status === 'available' ? 'success' : dep.status === 'sold' ? 'error' : 'secondary'}
-                  >
-                    {dep.status === 'available' ? 'Tersedia' : dep.status === 'sold' ? 'Penuh' : 'Sudah Lewat'}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filteredDepartures.map((dep) => {
+              const isNew = dep.id === newRowId;
+              const isPast = dep.status4 === 'past';
+              const rowClass = `
+                ${isNew ? 'bg-tenant-success/10 transition-colors duration-1000' : 'transition-colors duration-1000'}
+                ${isPast ? 'opacity-60' : ''}
+              `.trim();
+              
+              return (
+                <TableRow key={dep.id} className={rowClass}>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    {formatDate(dep.departureDate)}
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/dashboard/packages/${dep.packageId}/edit`} className="text-tenant-primary hover:underline">
+                      {dep.package?.name || 'Paket tidak ditemukan'}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1.5 w-full max-w-[140px]">
+                      <span className="text-xs text-neutral-600 font-medium">
+                        {dep.confirmedCount} / {dep.quota} terisi
+                      </span>
+                      <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${getStatusColorClass(dep.status4)} transition-all duration-500`} 
+                          style={{ width: `${Math.min(100, (dep.confirmedCount / dep.quota) * 100)}%` }} 
+                        />
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(dep.status4)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
 
       {/* Mobile Card Stack */}
       <div className={`space-y-3 md:hidden transition-opacity ${loading ? 'opacity-60' : ''}`}>
-        {!loading && departures.length === 0 && (
+        {filteredDepartures.length === 0 && (
           <Card className="p-6 text-center text-neutral-500">
-            Belum ada data keberangkatan.
+            Belum ada data keberangkatan yang sesuai.
           </Card>
         )}
-        {departures.map((dep) => (
-          <Card key={dep.id} className="p-4 flex flex-col gap-3">
-            <div className="flex justify-between items-start">
+        {filteredDepartures.map((dep) => {
+          const isNew = dep.id === newRowId;
+          const isPast = dep.status4 === 'past';
+          const cardClass = `p-4 flex flex-col gap-3 ${isNew ? 'bg-tenant-success/10' : ''} ${isPast ? 'opacity-60' : ''}`;
+
+          return (
+            <Card key={dep.id} className={cardClass}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs text-neutral-400 mb-0.5">Tgl Keberangkatan</p>
+                  <p className="font-semibold text-neutral-900">{formatDate(dep.departureDate)}</p>
+                </div>
+                {getStatusBadge(dep.status4)}
+              </div>
+              
               <div>
-                <p className="text-xs text-neutral-400 mb-0.5">Tgl Keberangkatan</p>
-                <p className="font-semibold text-neutral-900">{formatDate(dep.departureDate)}</p>
+                <p className="text-xs text-neutral-400 mb-0.5">Paket Terkait</p>
+                <Link href={`/dashboard/packages/${dep.packageId}/edit`} className="text-tenant-primary hover:underline font-medium text-sm">
+                  {dep.package?.name || 'Paket tidak ditemukan'}
+                </Link>
               </div>
-              <Badge 
-                variant={dep.status === 'available' ? 'success' : dep.status === 'sold' ? 'error' : 'secondary'}
-              >
-                {dep.status === 'available' ? 'Tersedia' : dep.status === 'sold' ? 'Penuh' : 'Sudah Lewat'}
-              </Badge>
-            </div>
-            
-            <div>
-              <p className="text-xs text-neutral-400 mb-0.5">Paket Terkait</p>
-              <Link href={`/dashboard/packages/${dep.packageId}/edit`} className="text-tenant-primary hover:underline font-medium text-sm">
-                {dep.package?.name || 'Paket tidak ditemukan'}
-              </Link>
-            </div>
 
-            <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
-              <div className="flex-1">
-                <p className="text-xs text-neutral-400 mb-0.5">Total Seat</p>
-                <p className="font-medium text-sm">{dep.quota}</p>
+              <div className="pt-3 border-t border-neutral-100">
+                <div className="flex justify-between items-end mb-1.5">
+                  <p className="text-xs text-neutral-400">Kapasitas</p>
+                  <span className="text-xs text-neutral-600 font-medium">
+                    {dep.confirmedCount} / {dep.quota} terisi
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full ${getStatusColorClass(dep.status4)} transition-all duration-500`} 
+                    style={{ width: `${Math.min(100, (dep.confirmedCount / dep.quota) * 100)}%` }} 
+                  />
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="text-xs text-neutral-400 mb-0.5">Booked</p>
-                <p className="font-medium text-sm">{dep.confirmedCount}</p>
-              </div>
-              <div className="flex-1 text-right">
-                <p className="text-xs text-neutral-400 mb-0.5">Tersisa</p>
-                <p className="font-bold text-sm text-neutral-900">{dep.remaining}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
-
-      {meta.totalPages > 1 && (
-        <Pagination
-          page={meta.page}
-          totalPages={meta.totalPages}
-          onPageChange={setPage}
-          className="mt-6"
-        />
-      )}
 
       <Modal
         open={isModalOpen}
