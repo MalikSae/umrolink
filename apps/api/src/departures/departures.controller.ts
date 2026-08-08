@@ -15,10 +15,15 @@ export class DeparturesController {
   constructor(private readonly departuresService: DeparturesService) {}
 
   @Get()
-  findAll(
+  async findAll(
     @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.departuresService.findAll(status);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.departuresService.findAll(status, search, pageNum, limitNum);
   }
 
   @Post()

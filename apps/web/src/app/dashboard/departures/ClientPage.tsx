@@ -2,25 +2,53 @@
 
 import { useEffect, useState } from 'react';
 import { PageContainer } from '../_components/PageContainer';
-import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@umrolink/ui';
+import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Pagination } from '@umrolink/ui';
 import Link from 'next/link';
+import { Search, X } from 'lucide-react';
 
 export default function DeparturesClientPage() {
   const [departures, setDepartures] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [status, setStatus] = useState('all');
+  const [page, setPage] = useState(1);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ packageId: '', departureDate: '', quota: '' });
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchDepartures = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/departures');
-      const data = await res.json();
-      setDepartures(data);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '10',
+      });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (status !== 'all') params.set('status', status);
+
+      const res = await fetch(`/api/departures?${params.toString()}`);
+      const json = await res.json();
+      if (res.ok) {
+        setDepartures(json.data || []);
+        setMeta(json.meta || { total: 0, page: 1, limit: 10, totalPages: 1 });
+      }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,9 +63,11 @@ export default function DeparturesClientPage() {
   };
 
   useEffect(() => {
-    Promise.all([fetchDepartures(), fetchPackages()]).finally(() => {
-      setLoading(false);
-    });
+    fetchDepartures();
+  }, [page, debouncedSearch, status]);
+
+  useEffect(() => {
+    fetchPackages();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,6 +130,56 @@ export default function DeparturesClientPage() {
           + Tambah Keberangkatan
         </Button>
       </div>
+
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="flex-1">
+          <Input
+            id="departures-search"
+            placeholder="Cari nama paket..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            leftIcon={<Search className="h-4 w-4" />}
+            rightIcon={
+              search ? (
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setPage(1);
+                  }}
+                  className="text-neutral-400 hover:text-neutral-600 transition-colors"
+                  aria-label="Hapus pencarian"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : undefined
+            }
+          />
+        </div>
+
+        <select
+          id="departures-status-filter"
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:border-neutral-300 focus:border-tenant-primary focus:outline-none focus:ring-[3px] focus:ring-tenant-primary/20 transition-[border-color,box-shadow]"
+        >
+          <option value="all">Semua Status</option>
+          <option value="available">Tersedia</option>
+          <option value="sold">Penuh</option>
+          <option value="past">Sudah Lewat</option>
+        </select>
+      </div>
+
+      {!loading && (
+        <p className="text-sm text-neutral-500 mb-3">
+          {meta.total} keberangkatan ditemukan
+          {debouncedSearch && (
+            <span> untuk &ldquo;<span className="font-medium text-neutral-700">{debouncedSearch}</span>&rdquo;</span>
+          )}
+        </p>
+      )}
 
       <Card className={`overflow-hidden p-0 hidden md:block transition-opacity ${loading ? 'opacity-60' : ''}`}>
         <Table>
@@ -192,6 +272,15 @@ export default function DeparturesClientPage() {
           </Card>
         ))}
       </div>
+
+      {meta.totalPages > 1 && (
+        <Pagination
+          page={meta.page}
+          totalPages={meta.totalPages}
+          onPageChange={setPage}
+          className="mt-6"
+        />
+      )}
 
       <Modal
         open={isModalOpen}

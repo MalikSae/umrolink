@@ -6,8 +6,17 @@ import { TenantPrismaService } from '../tenancy/tenant-prisma.service';
 export class DeparturesService {
   constructor(private readonly prisma: TenantPrismaService) {}
 
-  async findAll(statusFilter?: string) {
+  async findAll(statusFilter?: string, search?: string, page = 1, limit = 10) {
+    const where: any = {};
+    
+    if (search) {
+      where.package = {
+        name: { contains: search }
+      };
+    }
+
     const departures = await this.prisma.client.packageDeparture.findMany({
+      where,
       include: {
         package: true,
         _count: {
@@ -47,11 +56,25 @@ export class DeparturesService {
       };
     });
 
+    let filtered = enriched;
     if (statusFilter && ['available', 'sold', 'past'].includes(statusFilter)) {
-      return enriched.filter(d => d.status === statusFilter);
+      filtered = enriched.filter(d => d.status === statusFilter);
     }
 
-    return enriched;
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const paginated = filtered.slice(startIndex, startIndex + limit);
+
+    return {
+      data: paginated,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    };
   }
 
   async create(createDepartureDto: CreateDepartureDto) {

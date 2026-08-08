@@ -153,7 +153,7 @@ describe('Departures (e2e)', () => {
       .set('Authorization', `Bearer ${hijazToken}`);
 
     expect(res.status).toBe(200);
-    const ids = res.body.map((d: any) => d.id);
+    const ids = res.body.data.map((d: any) => d.id);
     expect(ids).not.toContain(validDepartureId);
   });
 
@@ -164,7 +164,7 @@ describe('Departures (e2e)', () => {
       .set('Authorization', `Bearer ${barokahToken}`);
 
     expect(res.status).toBe(200);
-    const dep = res.body.find((d: any) => d.id === validDepartureId);
+    const dep = res.body.data.find((d: any) => d.id === validDepartureId);
     expect(dep).toBeDefined();
     expect(dep.confirmedCount).toBe(0); // Belum ada lead
     expect(dep.remaining).toBe(10);
@@ -179,7 +179,7 @@ describe('Departures (e2e)', () => {
       .set('Authorization', `Bearer ${barokahToken}`);
 
     expect(res.status).toBe(200);
-    const dep = res.body.find((d: any) => d.id === validDepartureId);
+    const dep = res.body.data.find((d: any) => d.id === validDepartureId);
     expect(dep).toBeUndefined(); // Karena statusnya available, tidak muncul di filter past
   });
 });
