@@ -14,6 +14,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { LeadsModule } from './leads/leads.module';
 
 import { CommissionsModule } from './commissions/commissions.module';
+import { DeparturesModule } from './departures/departures.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CommissionsModule } from './commissions/commissions.module';
     AgentsModule,
     LeadsModule,
     CommissionsModule,
+    DeparturesModule,
   ],
   controllers: [AppController],
   providers: [
