@@ -63,7 +63,7 @@ export class PublicService {
     return Array.from(monthsMap.entries()).map(([value, label]) => ({ value, label }));
   }
 
-  async getPackages(month?: string, featured?: boolean) {
+  async getPackages(month?: string, featured?: boolean, pageStr?: string, limitStr?: string) {
     const whereClause: any = { status: 'published' };
 
     if (featured) {
@@ -87,6 +87,10 @@ export class PublicService {
       };
     }
 
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 10;
+    const skip = (page - 1) * limit;
+
     return this.tenantPrisma.client.package.findMany({
       where: whereClause,
       select: {
@@ -100,6 +104,8 @@ export class PublicService {
         priceDouble: true,
       },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
     });
   }
 
@@ -124,12 +130,10 @@ export class PublicService {
             id: true,
             departureDate: true,
             quota: true,
-            _count: {
-              select: {
-                leads: {
-                  where: { status: 'confirmed' }
-                }
-              }
+            // Ambil totalJamaah semua lead confirmed untuk SUM di application layer
+            leads: {
+              where: { status: 'confirmed' },
+              select: { totalJamaah: true }
             }
           },
           orderBy: { departureDate: 'asc' },
@@ -145,7 +149,8 @@ export class PublicService {
     today.setHours(0, 0, 0, 0);
 
     const formattedDepartures = pkg.departures.map(d => {
-      const confirmedCount = d._count.leads;
+      // SUM(totalJamaah) menggantikan COUNT(lead) lama
+      const confirmedCount = d.leads.reduce((sum: number, l: { totalJamaah: number }) => sum + l.totalJamaah, 0);
       return {
         id: d.id,
         departureDate: d.departureDate,
@@ -226,11 +231,14 @@ export class PublicService {
       throw new BadRequestException('Tanggal keberangkatan ini sudah lewat');
     }
 
-    const confirmedCount = await this.tenantPrisma.client.lead.count({
-      where: { departureId: dto.departureId, status: 'confirmed' }
+    // SUM(totalJamaah) menggantikan COUNT(lead) lama -- supaya 1 booking multi-jamaah dihitung benar
+    const sumResult = await this.tenantPrisma.client.lead.aggregate({
+      where: { departureId: dto.departureId, status: 'confirmed' },
+      _sum: { totalJamaah: true }
     });
+    const confirmedJamaah = sumResult._sum.totalJamaah ?? 0;
 
-    if (confirmedCount >= departure.quota) {
+    if (confirmedJamaah >= departure.quota) {
       throw new ConflictException('Tanggal keberangkatan ini sudah penuh (SOLD)');
     }
 

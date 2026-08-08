@@ -6,12 +6,16 @@ import { TenantPrismaService } from '../tenancy/tenant-prisma.service';
 export class DeparturesService {
   constructor(private readonly prisma: TenantPrismaService) {}
 
-  async findAll(statusFilter?: string, search?: string, page = 1, limit = 10) {
+  async findAll(statusFilter?: string, month?: string, page = 1, limit = 10) {
     const where: any = {};
     
-    if (search) {
-      where.package = {
-        name: { contains: search }
+    if (month) {
+      const [year, m] = month.split('-');
+      const startDate = new Date(parseInt(year, 10), parseInt(m, 10) - 1, 1);
+      const endDate = new Date(parseInt(year, 10), parseInt(m, 10), 1);
+      where.departureDate = {
+        gte: startDate,
+        lt: endDate
       };
     }
 
@@ -19,10 +23,10 @@ export class DeparturesService {
       where,
       include: {
         package: true,
-        _count: {
-          select: {
-            leads: { where: { status: 'confirmed' } }
-          }
+        // Ambil semua lead confirmed beserta totalJamaah untuk SUM di application layer
+        leads: {
+          where: { status: 'confirmed' },
+          select: { totalJamaah: true }
         }
       },
       orderBy: { departureDate: 'asc' }
@@ -33,7 +37,8 @@ export class DeparturesService {
     now.setHours(0, 0, 0, 0);
 
     const enriched = departures.map((dep) => {
-      const confirmedCount = dep._count.leads;
+      // SUM(totalJamaah) dari semua lead confirmed -- menggantikan COUNT(lead) lama
+      const confirmedCount = dep.leads.reduce((sum, l) => sum + l.totalJamaah, 0);
       const remaining = Math.max(0, dep.quota - confirmedCount);
       
       let status = 'available';
@@ -51,8 +56,8 @@ export class DeparturesService {
         confirmedCount,
         remaining,
         status,
-        // Remove _count from output
-        _count: undefined,
+        // Remove leads array from output (sudah di-aggregate)
+        leads: undefined,
       };
     });
 
