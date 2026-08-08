@@ -76,7 +76,7 @@ export class DeparturesService {
     const departure = await this.prisma.client.packageDeparture.create({
       data: {
         packageId: createDepartureDto.packageId,
-        departureDate: createDepartureDto.departureDate,
+        departureDate: new Date(createDepartureDto.departureDate),
         quota: createDepartureDto.quota,
       },
       include: {
