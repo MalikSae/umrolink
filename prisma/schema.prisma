@@ -8,26 +8,33 @@ datasource db {
 }
 
 model Tenant {
-  id                  String             @id @default(cuid())
+  id                  String               @id @default(cuid())
   name                String
-  subdomain           String             @unique
-  customDomain        String?            @unique
+  subdomain           String               @unique
+  customDomain        String?              @unique
   brandPrimaryColor   String?
   brandSecondaryColor String?
   brandAccentColor    String?
-  description         String?            @db.Text
+  description         String?              @db.Text
   address             String?
   phoneNumber         String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   users               User[]
   packages            Package[]
   packageDepartures   PackageDeparture[]
-  agentCodeSeq        Int                @default(0)
+  agentCodeSeq        Int                  @default(0)
   agentProfiles       AgentProfile[]
   leads               Lead[]
   banners             Banner[]
   commissions         Commission[]
+  leadRoomAllocations LeadRoomAllocation[]
+  // Payment config
+  minDpPerJamaah      Int?
+  bankName            String?
+  bankAccountNo       String?
+  bankAccountName     String?
+  bookingCodeSeq      Int                  @default(0)
 }
 
 enum PackageStatus {
@@ -124,27 +131,60 @@ enum LeadStatus {
   cancelled
 }
 
+enum LeadType {
+  prospek
+  booking
+}
+
+enum PaymentStatus {
+  unpaid
+  dp_received
+  paid_full
+}
+
 model Lead {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  packageId   String
-  package     Package  @relation(fields: [packageId], references: [id])
-  departureId String
-  departure   PackageDeparture @relation(fields: [departureId], references: [id])
+  id            String                @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                @relation(fields: [tenantId], references: [id])
+  packageId     String
+  package       Package               @relation(fields: [packageId], references: [id])
+  departureId   String?
+  departure     PackageDeparture?     @relation(fields: [departureId], references: [id])
 
   // Atribusi Agen
   agentId String?
   agent   AgentProfile? @relation(fields: [agentId], references: [id])
 
-  name        String
-  phone       String
-  status      LeadStatus @default(pending)
-  confirmedAt DateTime?
+  name          String
+  phone         String
+  status        LeadStatus    @default(pending)
+  confirmedAt   DateTime?
+
+  // Jalur booking/prospek
+  type          LeadType      @default(booking)
+  bookingNumber String?       @unique
+  paymentStatus PaymentStatus @default(unpaid)
+  totalJamaah   Int           @default(1)
+  totalAmount   Int?
+  minDpAmount   Int?
+
+  roomAllocations LeadRoomAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   commission Commission?
+}
+
+model LeadRoomAllocation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  roomType    String   // 'quad' | 'triple' | 'double'
+  jumlahOrang Int
+  hargaSatuan Int      // snapshot dari Package.priceQuad/Triple/Double saat booking dibuat
+  subtotal    Int      // hargaSatuan x jumlahOrang
 }
 
 model Banner {
