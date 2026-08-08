@@ -14,10 +14,16 @@ export class LeadsController {
     return this.leadsService.findAll();
   }
 
-  @Patch(':id/confirm')
+  @Patch(':id/mark-dp-received')
   @Roles('super_admin', 'travel_admin')
-  confirm(@Param('id') id: string) {
-    return this.leadsService.confirm(id);
+  markDpReceived(@Param('id') id: string) {
+    return this.leadsService.markPayment(id, 'dp_received');
+  }
+
+  @Patch(':id/mark-paid-full')
+  @Roles('super_admin', 'travel_admin')
+  markPaidFull(@Param('id') id: string) {
+    return this.leadsService.markPayment(id, 'paid_full');
   }
 
   @Patch(':id/cancel')
