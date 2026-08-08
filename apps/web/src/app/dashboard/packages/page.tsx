@@ -18,6 +18,7 @@ import {
   Modal,
   ModalContent,
   ModalHeader,
+  ModalTitle,
   ModalDescription,
   ModalFooter,
   Select,
