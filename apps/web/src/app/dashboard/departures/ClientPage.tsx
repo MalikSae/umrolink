@@ -93,7 +93,7 @@ export default function DeparturesClientPage() {
   return (
     <PageContainer>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">
+        <h1 className="text-2xl md:text-4xl font-bold leading-tight text-neutral-900">
           Keberangkatan
         </h1>
         <Button onClick={() => setIsModalOpen(true)}>
