@@ -11,6 +11,7 @@ export default function DeparturesClientPage() {
   const [loading, setLoading] = useState(true);
 
   // Filters
+  const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterPackage, setFilterPackage] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -73,43 +74,112 @@ export default function DeparturesClientPage() {
     }));
   }, [allDepartures]);
 
-  // Derived filter options
-  const monthOptions = useMemo(() => {
-    const months = new Map();
+  // Derived filter options - CASCADING
+  const yearOptions = useMemo(() => {
+    const years = new Set<string>();
     enrichedDepartures.forEach(dep => {
-      const d = new Date(dep.departureDate);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-      if (!months.has(key)) {
-        months.set(key, { key, label, timestamp: d.getTime() });
-      }
+      const y = new Date(dep.departureDate).getFullYear().toString();
+      years.add(y);
     });
-    return Array.from(months.values()).sort((a, b) => a.timestamp - b.timestamp);
+    return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
   }, [enrichedDepartures]);
 
+  // Set default year
+  useEffect(() => {
+    if (yearOptions.length > 0 && !filterYear) {
+      const currentYear = new Date().getFullYear().toString();
+      if (yearOptions.includes(currentYear)) {
+        setFilterYear(currentYear);
+      } else {
+        setFilterYear(yearOptions[0]);
+      }
+    }
+  }, [yearOptions, filterYear]);
+
+  // 1. Filtered by Year
+  const departuresByYear = useMemo(() => {
+    if (!filterYear) return [];
+    return enrichedDepartures.filter(dep => new Date(dep.departureDate).getFullYear().toString() === filterYear);
+  }, [enrichedDepartures, filterYear]);
+
+  const monthOptions = useMemo(() => {
+    const months = new Map();
+    departuresByYear.forEach(dep => {
+      const d = new Date(dep.departureDate);
+      const key = String(d.getMonth() + 1).padStart(2, '0');
+      const label = d.toLocaleDateString('id-ID', { month: 'long' });
+      if (!months.has(key)) {
+        months.set(key, { key, label, index: d.getMonth() });
+      }
+    });
+    return Array.from(months.values()).sort((a, b) => a.index - b.index);
+  }, [departuresByYear]);
+
+  // Check if month is still valid
+  useEffect(() => {
+    if (filterMonth !== 'all' && !monthOptions.find(m => m.key === filterMonth)) {
+      setFilterMonth('all');
+    }
+  }, [monthOptions, filterMonth]);
+
+  // 2. Filtered by Month
+  const departuresByMonth = useMemo(() => {
+    if (filterMonth === 'all') return departuresByYear;
+    return departuresByYear.filter(dep => {
+      const m = String(new Date(dep.departureDate).getMonth() + 1).padStart(2, '0');
+      return m === filterMonth;
+    });
+  }, [departuresByYear, filterMonth]);
+
   const packageOptions = useMemo(() => {
-    const pkgs = new Set();
-    enrichedDepartures.forEach(dep => {
+    const pkgs = new Set<string>();
+    departuresByMonth.forEach(dep => {
       if (dep.package?.name) {
         pkgs.add(dep.package.name);
       }
     });
-    return Array.from(pkgs).sort() as string[];
-  }, [enrichedDepartures]);
+    return Array.from(pkgs).sort();
+  }, [departuresByMonth]);
 
-  // Filtered array
-  const filteredDepartures = useMemo(() => {
-    return enrichedDepartures.filter(dep => {
-      const d = new Date(dep.departureDate);
-      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (filterMonth !== 'all' && monthKey !== filterMonth) return false;
-      if (filterPackage !== 'all' && dep.package?.name !== filterPackage) return false;
-      if (filterStatus !== 'all' && dep.status4 !== filterStatus) return false;
-      
-      return true;
+  // Check if package is still valid
+  useEffect(() => {
+    if (filterPackage !== 'all' && !packageOptions.includes(filterPackage)) {
+      setFilterPackage('all');
+    }
+  }, [packageOptions, filterPackage]);
+
+  // 3. Filtered by Package
+  const departuresByPackage = useMemo(() => {
+    if (filterPackage === 'all') return departuresByMonth;
+    return departuresByMonth.filter(dep => dep.package?.name === filterPackage);
+  }, [departuresByMonth, filterPackage]);
+
+  const statusOptions = useMemo(() => {
+    const statuses = new Set<string>();
+    departuresByPackage.forEach(dep => {
+      statuses.add(dep.status4);
     });
-  }, [enrichedDepartures, filterMonth, filterPackage, filterStatus]);
+    // Sort to predefined order
+    const order = ['available', 'near-full', 'sold', 'past'];
+    return Array.from(statuses).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [departuresByPackage]);
+
+  // Check if status is still valid
+  useEffect(() => {
+    if (filterStatus !== 'all' && !statusOptions.includes(filterStatus)) {
+      setFilterStatus('all');
+    }
+  }, [statusOptions, filterStatus]);
+
+  // 4. Final Filtered
+  const filteredDepartures = useMemo(() => {
+    let result = departuresByPackage;
+    if (filterStatus !== 'all') {
+      result = result.filter(dep => dep.status4 === filterStatus);
+    }
+    // Sort by departureDate ascending
+    return result.sort((a, b) => new Date(a.departureDate).getTime() - new Date(b.departureDate).getTime());
+  }, [departuresByPackage, filterStatus]);
 
   // Auto-fill quota when packageId changes
   useEffect(() => {
@@ -120,6 +190,8 @@ export default function DeparturesClientPage() {
       
       if (existing.length > 0) {
         setFormData(prev => ({ ...prev, quota: String(existing[0].quota) }));
+      } else {
+        setFormData(prev => ({ ...prev, quota: '' }));
       }
     }
   }, [formData.packageId, allDepartures]);
@@ -148,6 +220,16 @@ export default function DeparturesClientPage() {
         setIsModalOpen(false);
         setFormData({ packageId: '', departureDate: '', quota: '' });
         await fetchDepartures();
+        
+        // Let's set filter year/month to match the new item so it's visible if hidden
+        const newD = new Date(newData.departureDate);
+        setFilterYear(newD.getFullYear().toString());
+        // Delay resetting month to let the new year populate month options in the next render cycle, 
+        // though just simple reset might be cleaner for now.
+        setFilterMonth('all');
+        setFilterPackage('all');
+        setFilterStatus('all');
+
         setNewRowId(newData.id);
         setTimeout(() => setNewRowId(null), 2500); // clear highlight after 2.5s
       } else {
@@ -171,8 +253,8 @@ export default function DeparturesClientPage() {
 
   const getStatusBadge = (status4: string) => {
     switch (status4) {
-      case 'past': return <Badge variant="secondary">Sudah Lewat</Badge>;
-      case 'sold': return <Badge variant="error">Penuh</Badge>;
+      case 'past': return <Badge variant="default" className="bg-neutral-200 text-neutral-600 border-transparent hover:bg-neutral-200">Sudah Lewat</Badge>;
+      case 'sold': return <Badge variant="danger">Penuh</Badge>;
       case 'near-full': return <Badge variant="warning">Hampir Penuh</Badge>;
       case 'available': return <Badge variant="success">Tersedia</Badge>;
       default: return null;
@@ -192,7 +274,7 @@ export default function DeparturesClientPage() {
   if (loading) {
     return (
       <PageContainer>
-        <p className="text-[var(--color-text-muted)]">Memuat data keberangkatan...</p>
+        <p className="text-neutral-500">Memuat data keberangkatan...</p>
       </PageContainer>
     );
   }
@@ -209,7 +291,18 @@ export default function DeparturesClientPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <Select value={filterMonth} onValueChange={setFilterMonth}>
+        <Select value={filterYear} onValueChange={setFilterYear} disabled={yearOptions.length === 0}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Pilih Tahun" />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map(y => (
+              <SelectItem key={y} value={y}>{y}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterMonth} onValueChange={setFilterMonth} disabled={monthOptions.length === 0}>
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Semua Bulan" />
           </SelectTrigger>
@@ -221,7 +314,7 @@ export default function DeparturesClientPage() {
           </SelectContent>
         </Select>
 
-        <Select value={filterPackage} onValueChange={setFilterPackage}>
+        <Select value={filterPackage} onValueChange={setFilterPackage} disabled={packageOptions.length === 0}>
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Semua Paket" />
           </SelectTrigger>
@@ -233,16 +326,16 @@ export default function DeparturesClientPage() {
           </SelectContent>
         </Select>
 
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select value={filterStatus} onValueChange={setFilterStatus} disabled={statusOptions.length === 0}>
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Semua Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Status</SelectItem>
-            <SelectItem value="available">Tersedia</SelectItem>
-            <SelectItem value="near-full">Hampir Penuh</SelectItem>
-            <SelectItem value="sold">Penuh</SelectItem>
-            <SelectItem value="past">Sudah Lewat</SelectItem>
+            {statusOptions.includes('available') && <SelectItem value="available">Tersedia</SelectItem>}
+            {statusOptions.includes('near-full') && <SelectItem value="near-full">Hampir Penuh</SelectItem>}
+            {statusOptions.includes('sold') && <SelectItem value="sold">Penuh</SelectItem>}
+            {statusOptions.includes('past') && <SelectItem value="past">Sudah Lewat</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -366,7 +459,7 @@ export default function DeparturesClientPage() {
           </ModalHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Pilih Paket Umroh
             </label>
             <Select
@@ -388,7 +481,7 @@ export default function DeparturesClientPage() {
             </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Pilih Tgl Berangkat
             </label>
             <Input
@@ -400,7 +493,7 @@ export default function DeparturesClientPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Total Seat
             </label>
             <Input
