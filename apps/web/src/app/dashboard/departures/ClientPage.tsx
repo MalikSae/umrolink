@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PageContainer } from '../_components/PageContainer';
-import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge } from '@umrolink/ui';
+import { Button, Modal, ModalContent, ModalHeader, ModalTitle, Input, Badge, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@umrolink/ui';
 import Link from 'next/link';
 
 export default function DeparturesClientPage() {
@@ -101,65 +101,65 @@ export default function DeparturesClientPage() {
         </Button>
       </div>
 
-      <div className="hidden md:block bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
-        <table className="w-full text-left text-sm text-[var(--color-text)]">
-          <thead className="bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] uppercase text-xs">
-            <tr>
-              <th className="px-6 py-4 font-medium">Tgl Keberangkatan</th>
-              <th className="px-6 py-4 font-medium">Paket Terkait</th>
-              <th className="px-6 py-4 font-medium">Total Seat</th>
-              <th className="px-6 py-4 font-medium">Booked</th>
-              <th className="px-6 py-4 font-medium">Seat Tersisa</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {departures.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-[var(--color-text-muted)]">
+      <Card className={`overflow-hidden p-0 hidden md:block transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tgl Keberangkatan</TableHead>
+              <TableHead>Paket Terkait</TableHead>
+              <TableHead>Total Seat</TableHead>
+              <TableHead>Booked</TableHead>
+              <TableHead>Seat Tersisa</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!loading && departures.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-neutral-500 py-10">
                   Belum ada data keberangkatan.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {departures.map((dep) => (
-              <tr key={dep.id} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap font-medium">
+              <TableRow key={dep.id}>
+                <TableCell className="font-medium">
                   {formatDate(dep.departureDate)}
-                </td>
-                <td className="px-6 py-4">
+                </TableCell>
+                <TableCell>
                   <Link href={`/dashboard/packages/${dep.packageId}/edit`} className="text-tenant-primary hover:underline">
                     {dep.package?.name || 'Paket tidak ditemukan'}
                   </Link>
-                </td>
-                <td className="px-6 py-4">{dep.quota}</td>
-                <td className="px-6 py-4">{dep.confirmedCount}</td>
-                <td className="px-6 py-4 font-semibold">{dep.remaining}</td>
-                <td className="px-6 py-4">
+                </TableCell>
+                <TableCell>{dep.quota}</TableCell>
+                <TableCell>{dep.confirmedCount}</TableCell>
+                <TableCell className="font-semibold">{dep.remaining}</TableCell>
+                <TableCell>
                   <Badge 
                     variant={dep.status === 'available' ? 'success' : dep.status === 'sold' ? 'error' : 'secondary'}
                   >
                     {dep.status === 'available' ? 'Tersedia' : dep.status === 'sold' ? 'Penuh' : 'Sudah Lewat'}
                   </Badge>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
 
       {/* Mobile Card Stack */}
-      <div className="md:hidden space-y-4">
-        {departures.length === 0 && (
-          <div className="p-6 bg-white rounded-xl border border-[var(--color-border)] text-center text-[var(--color-text-muted)] text-sm">
+      <div className={`space-y-3 md:hidden transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        {!loading && departures.length === 0 && (
+          <Card className="p-6 text-center text-neutral-500">
             Belum ada data keberangkatan.
-          </div>
+          </Card>
         )}
         {departures.map((dep) => (
-          <div key={dep.id} className="bg-white p-5 rounded-xl border border-[var(--color-border)] shadow-sm flex flex-col gap-3">
+          <Card key={dep.id} className="p-4 flex flex-col gap-3">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-[var(--color-text-muted)]">Tgl Keberangkatan</p>
-                <p className="font-bold text-[var(--color-text)]">{formatDate(dep.departureDate)}</p>
+                <p className="text-xs text-neutral-400 mb-0.5">Tgl Keberangkatan</p>
+                <p className="font-semibold text-neutral-900">{formatDate(dep.departureDate)}</p>
               </div>
               <Badge 
                 variant={dep.status === 'available' ? 'success' : dep.status === 'sold' ? 'error' : 'secondary'}
@@ -169,27 +169,27 @@ export default function DeparturesClientPage() {
             </div>
             
             <div>
-              <p className="text-sm text-[var(--color-text-muted)]">Paket Terkait</p>
+              <p className="text-xs text-neutral-400 mb-0.5">Paket Terkait</p>
               <Link href={`/dashboard/packages/${dep.packageId}/edit`} className="text-tenant-primary hover:underline font-medium text-sm">
                 {dep.package?.name || 'Paket tidak ditemukan'}
               </Link>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[var(--color-border)]">
-              <div>
-                <p className="text-xs text-[var(--color-text-muted)]">Total Seat</p>
+            <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
+              <div className="flex-1">
+                <p className="text-xs text-neutral-400 mb-0.5">Total Seat</p>
                 <p className="font-medium text-sm">{dep.quota}</p>
               </div>
-              <div>
-                <p className="text-xs text-[var(--color-text-muted)]">Booked</p>
+              <div className="flex-1">
+                <p className="text-xs text-neutral-400 mb-0.5">Booked</p>
                 <p className="font-medium text-sm">{dep.confirmedCount}</p>
               </div>
-              <div>
-                <p className="text-xs text-[var(--color-text-muted)]">Tersisa</p>
-                <p className="font-bold text-sm">{dep.remaining}</p>
+              <div className="flex-1 text-right">
+                <p className="text-xs text-neutral-400 mb-0.5">Tersisa</p>
+                <p className="font-bold text-sm text-neutral-900">{dep.remaining}</p>
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
