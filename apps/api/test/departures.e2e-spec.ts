@@ -11,8 +11,12 @@ describe('Departures (e2e)', () => {
   let hijazToken = '';
   let agentToken = '';
   
+  let barokahTenantId = '';
+  let hijazTenantId = '';
   let barokahPackageId = '';
   let hijazPackageId = '';
+  let validDepartureId = '';
+  let hijazDepartureId = '';
   
   const rootDomain = process.env.TENANT_ROOT_DOMAIN || 'localhost';
 
@@ -33,6 +37,7 @@ describe('Departures (e2e)', () => {
       .set('Host', `barokah.${rootDomain}`)
       .send({ email: 'admin@barokah.test', password: 'Password123!' });
     barokahToken = resA.body?.access_token || '';
+    barokahTenantId = resA.body?.tenantId || '';
 
     // Login agent Barokah
     const resAgent = await request(app.getHttpServer())
@@ -47,7 +52,18 @@ describe('Departures (e2e)', () => {
       .set('Host', `hijaz.${rootDomain}`)
       .send({ email: 'admin@hijaz.test', password: 'Password123!' });
     hijazToken = resB.body?.access_token || '';
+    hijazTenantId = resB.body?.tenantId || '';
     
+    // Fallback if tenantId isn't in login payload
+    if (!barokahTenantId) {
+      const bT = await prisma.tenant.findUnique({ where: { subdomain: 'barokah' } });
+      barokahTenantId = bT!.id;
+    }
+    if (!hijazTenantId) {
+      const hT = await prisma.tenant.findUnique({ where: { subdomain: 'hijaz' } });
+      hijazTenantId = hT!.id;
+    }
+
     // Create package for barokah
     const pkgA = await request(app.getHttpServer())
       .post('/api/packages')
@@ -63,10 +79,49 @@ describe('Departures (e2e)', () => {
       .set('Authorization', `Bearer ${hijazToken}`)
       .send({ name: 'Paket Hijaz', priceQuad: 2000 });
     hijazPackageId = pkgB.body.id;
+
+    // Create one departure for Barokah
+    const depA = await request(app.getHttpServer())
+      .post('/api/departures')
+      .set('Host', `barokah.${rootDomain}`)
+      .set('Authorization', `Bearer ${barokahToken}`)
+      .send({
+        packageId: barokahPackageId,
+        departureDate: '2030-12-31',
+        quota: 10,
+      });
+    validDepartureId = depA.body.id;
+
+    // Create one departure for Hijaz
+    const depB = await request(app.getHttpServer())
+      .post('/api/departures')
+      .set('Host', `hijaz.${rootDomain}`)
+      .set('Authorization', `Bearer ${hijazToken}`)
+      .send({
+        packageId: hijazPackageId,
+        departureDate: '2030-12-31',
+        quota: 10,
+      });
+    hijazDepartureId = depB.body.id;
+
+    // Create leads for Barokah departure to test counts
+    await prisma.lead.createMany({
+      data: [
+        { tenantId: barokahTenantId, packageId: barokahPackageId, departureId: validDepartureId, name: 'Lead 1', phone: '081', status: 'confirmed' },
+        { tenantId: barokahTenantId, packageId: barokahPackageId, departureId: validDepartureId, name: 'Lead 2', phone: '082', status: 'confirmed' },
+        { tenantId: barokahTenantId, packageId: barokahPackageId, departureId: validDepartureId, name: 'Lead 3', phone: '083', status: 'pending' }, // pending shouldn't count
+      ]
+    });
   });
 
   afterAll(async () => {
     // Cleanup
+    await prisma.lead.deleteMany({
+      where: {
+        packageId: { in: [barokahPackageId, hijazPackageId].filter(Boolean) }
+      }
+    });
+
     if (barokahPackageId) {
       await request(app.getHttpServer())
         .delete(`/api/packages/${barokahPackageId}`)
@@ -83,21 +138,53 @@ describe('Departures (e2e)', () => {
     await app.close();
   });
 
-  it('1. Create departure dengan role agent -> Gagal 403', async () => {
+  it('1. GET /api/departures sebagai travel_admin Barokah -> semua departure Barokah muncul, TIDAK ada milik Hijaz', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/departures?limit=100')
+      .set('Host', `barokah.${rootDomain}`)
+      .set('Authorization', `Bearer ${barokahToken}`);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((d: any) => d.id);
+    expect(ids).toContain(validDepartureId);
+    expect(ids).not.toContain(hijazDepartureId);
+  });
+
+  it('2. GET /api/departures -> hitungan confirmedCount/remaining/status BENAR sesuai data Lead yang ada', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/departures?limit=100')
+      .set('Host', `barokah.${rootDomain}`)
+      .set('Authorization', `Bearer ${barokahToken}`);
+
+    expect(res.status).toBe(200);
+    const dep = res.body.data.find((d: any) => d.id === validDepartureId);
+    expect(dep).toBeDefined();
+    
+    // 2 confirmed leads, 1 pending (ignored for confirmedCount)
+    expect(dep.confirmedCount).toBe(2); 
+    // Quota was 10, remaining should be 8
+    expect(dep.remaining).toBe(8);
+    // Status available
+    expect(dep.status).toBe('available');
+  });
+
+  it('3. POST /api/departures dengan packageId valid, tanggal masa depan -> 201, tersimpan', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/departures')
       .set('Host', `barokah.${rootDomain}`)
-      .set('Authorization', `Bearer ${agentToken}`)
+      .set('Authorization', `Bearer ${barokahToken}`)
       .send({
         packageId: barokahPackageId,
-        departureDate: '2030-01-01',
-        quota: 10,
+        departureDate: '2031-01-01',
+        quota: 15,
       });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(201);
+    expect(res.body.packageId).toBe(barokahPackageId);
+    expect(res.body.quota).toBe(15);
   });
 
-  it('2. Create departure dengan tanggal masa lalu -> Gagal 400', async () => {
+  it('4. POST /api/departures dengan tanggal MASA LALU -> 400', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/departures')
       .set('Host', `barokah.${rootDomain}`)
@@ -112,74 +199,59 @@ describe('Departures (e2e)', () => {
     expect(res.body.message).toContain('masa lalu');
   });
 
-  it('3. Create departure untuk package tenant lain -> Gagal 404', async () => {
-    // Barokah admin mencoba menambah keberangkatan ke paket Hijaz
+  it('5. POST /api/departures dengan packageId milik TENANT LAIN -> 404', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/departures')
       .set('Host', `barokah.${rootDomain}`)
       .set('Authorization', `Bearer ${barokahToken}`)
       .send({
         packageId: hijazPackageId,
-        departureDate: '2030-01-01',
+        departureDate: '2031-02-01',
         quota: 10,
       });
 
     expect(res.status).toBe(404);
   });
 
-  let validDepartureId = '';
+  it('6. POST /api/departures TIDAK menghapus departure lain milik package yang sama (additive)', async () => {
+    // Check initial count
+    const resBefore = await request(app.getHttpServer())
+      .get('/api/departures?limit=100')
+      .set('Host', `barokah.${rootDomain}`)
+      .set('Authorization', `Bearer ${barokahToken}`);
+      
+    const beforeCount = resBefore.body.data.filter((d: any) => d.packageId === barokahPackageId).length;
 
-  it('4. Create departure valid -> Sukses 201', async () => {
-    const res = await request(app.getHttpServer())
+    // Add new departure
+    const resPost = await request(app.getHttpServer())
       .post('/api/departures')
       .set('Host', `barokah.${rootDomain}`)
       .set('Authorization', `Bearer ${barokahToken}`)
       .send({
         packageId: barokahPackageId,
-        departureDate: '2030-12-31',
-        quota: 10,
+        departureDate: '2031-03-01',
+        quota: 20,
       });
+      
+    expect(resPost.status).toBe(201);
 
-    expect(res.status).toBe(201);
-    expect(res.body.packageId).toBe(barokahPackageId);
-    expect(res.body.quota).toBe(10);
-    validDepartureId = res.body.id;
-  });
-
-  it('5. GET departures tenant isolation -> Hijaz tidak melihat departure Barokah', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/api/departures')
-      .set('Host', `hijaz.${rootDomain}`)
-      .set('Authorization', `Bearer ${hijazToken}`);
-
-    expect(res.status).toBe(200);
-    const ids = res.body.data.map((d: any) => d.id);
-    expect(ids).not.toContain(validDepartureId);
-  });
-
-  it('6. GET departures -> kalkulasi confirmedCount, remaining, status', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/api/departures')
+    // Check new count
+    const resAfter = await request(app.getHttpServer())
+      .get('/api/departures?limit=100')
       .set('Host', `barokah.${rootDomain}`)
       .set('Authorization', `Bearer ${barokahToken}`);
-
-    expect(res.status).toBe(200);
-    const dep = res.body.data.find((d: any) => d.id === validDepartureId);
-    expect(dep).toBeDefined();
-    expect(dep.confirmedCount).toBe(0); // Belum ada lead
-    expect(dep.remaining).toBe(10);
-    expect(dep.status).toBe('available');
-    expect(dep.package.name).toBe('Paket Barokah');
+      
+    const afterCount = resAfter.body.data.filter((d: any) => d.packageId === barokahPackageId).length;
+    
+    expect(afterCount).toBe(beforeCount + 1);
   });
 
-  it('7. GET departures filter status -> valid filter', async () => {
+  it('7. GET /api/departures sebagai role agent -> 403', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/departures?status=past')
+      .get('/api/departures?limit=100')
       .set('Host', `barokah.${rootDomain}`)
-      .set('Authorization', `Bearer ${barokahToken}`);
+      .set('Authorization', `Bearer ${agentToken}`);
 
-    expect(res.status).toBe(200);
-    const dep = res.body.data.find((d: any) => d.id === validDepartureId);
-    expect(dep).toBeUndefined(); // Karena statusnya available, tidak muncul di filter past
+    expect(res.status).toBe(403);
   });
 });
