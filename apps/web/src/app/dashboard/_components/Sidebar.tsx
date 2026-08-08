@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, X, Users, Settings, Banknote } from 'lucide-react';
+import { LayoutDashboard, Package, X, Users, Settings, Banknote, Calendar } from 'lucide-react';
 import { useUser } from '../layout';
 
 interface SidebarProps {
@@ -26,6 +26,7 @@ function SidebarContent({ onClose, collapsed }: { onClose?: () => void; collapse
     if (role === 'travel_admin' || role === 'super_admin') {
       items.push(
         { href: '/dashboard/packages', label: 'Manajemen Paket', icon: Package },
+        { href: '/dashboard/departures', label: 'Keberangkatan', icon: Calendar },
         { href: '/dashboard/agen', label: 'Manajemen Agen', icon: Users },
         { href: '/dashboard/commissions', label: 'Komisi', icon: Banknote },
       );
