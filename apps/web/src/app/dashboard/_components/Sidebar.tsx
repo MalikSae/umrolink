@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Package, X, Users, Settings, Banknote, Calendar } from 'lucide-react';
 import { useUser } from '../layout';
@@ -45,7 +46,7 @@ function SidebarContent({ onClose, collapsed }: { onClose?: () => void; collapse
     <>
       {/* Logo area */}
       <div className={`flex items-center h-16 border-b border-white/10 shrink-0 ${collapsed ? 'justify-center px-4' : 'justify-between px-6'}`}>
-        {!collapsed && <h2 className="text-xl font-bold text-white">Umrolink</h2>}
+        {!collapsed && <Image src="/logo-white.png" alt="Umrolink" width={140} height={32} className="h-8 w-auto object-contain" />}
         {collapsed && <span className="text-xl font-bold text-white">U</span>}
         {onClose && !collapsed && (
           <button
