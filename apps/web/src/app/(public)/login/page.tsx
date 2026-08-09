@@ -25,8 +25,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       
+      const data = await res.json();
+      
       if (!res.ok) {
-        setError('Email atau password salah');
+        setError(data.message || 'Email atau password salah');
         return;
       }
       

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { Metadata, Viewport } from 'next';
 import { BottomNav } from './_components/BottomNav';
 import { PublicShell } from './_components/PublicShell';
+import { Bell } from 'lucide-react';
 
 async function getTenantData() {
   const headersList = await headers();
@@ -79,6 +80,10 @@ export default async function PublicLayout({ children }: { children: ReactNode }
               <h1 className="text-xl font-bold text-tenant-primary truncate">
                 {tenant.name}
               </h1>
+              <button className="relative p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-full transition-colors">
+                <Bell className="w-6 h-6" />
+                <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              </button>
             </div>
           </header>
           
@@ -86,11 +91,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             {children}
           </main>
           
-          <footer className="bg-slate-900 text-white py-12 mt-auto">
-            <div className="px-4 text-center text-slate-400 text-sm">
-              <p>&copy; {new Date().getFullYear()} {tenant.name}. All rights reserved.</p>
-            </div>
-          </footer>
+
 
           <BottomNav />
         </div>

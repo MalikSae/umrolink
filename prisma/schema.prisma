@@ -222,3 +222,12 @@ model Commission {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 }
+
+model AuthHandoffToken {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}

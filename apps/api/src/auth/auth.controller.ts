@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, UnauthorizedException, Get } from '@nestjs/common';
+import { Controller, Post, Body, Res, UnauthorizedException, Get, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Response } from 'express';
 import { Public } from './decorators/public.decorator';
@@ -18,6 +18,10 @@ export class AuthController {
       throw new UnauthorizedException('Kredensial tidak valid');
     }
 
+    if (result.type === 'handoff') {
+      return result; // contains handoff_token
+    }
+
     res.cookie('umrolink_token', result.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -27,6 +31,30 @@ export class AuthController {
     });
 
     return result;
+  }
+
+  @Public()
+  @Get('handoff')
+  async handoff(@Query('code') code: string, @Res() res: Response) {
+    if (!code) {
+      return res.redirect('/login?error=expired');
+    }
+
+    try {
+      const result = await this.authService.redeemHandoffToken(code);
+
+      res.cookie('umrolink_token', result.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return res.redirect('/dashboard');
+    } catch (e) {
+      return res.redirect('/login?error=expired');
+    }
   }
 
   @Get('me')

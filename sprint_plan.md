@@ -19,7 +19,7 @@
 | 6 | Atribusi Referral | **Selesai** | Cookie 30 hari, lock atribusi |
 | 7 | Booking & Kuota | **Selesai** | Kuota per tanggal keberangkatan, SERIALIZABLE tx, 15 E2E scenarios |
 | 8 | Komisi | **Selesai** | Auto-generate komisi, dashboard agen |
-| 9 | Dashboard Travel Admin Lanjutan | Belum mulai | Kelola booking & status |
+| 9 | Dashboard Travel Admin Lanjutan | **Selesai** | Kelola booking & keberangkatan (lintas-paket, filter cascading tahun/bulan/paket/status) |
 | 10 | Dashboard Agent Lanjutan | Belum mulai | Statistik referral, copy-link |
 | 11 | Notifikasi | Belum mulai | Email via queue (BullMQ) |
 | 12 | Upload & File Storage | Belum mulai | R2 presigned URL, kompresi gambar |
@@ -209,11 +209,18 @@
 
 ## Sprint 9 — Dashboard Travel Admin Lanjutan
 
-**Goal:** Travel Admin punya satu tempat untuk mengelola seluruh lead/booking masuk.
+**Goal:** Travel Admin punya satu tempat untuk mengelola seluruh lead/booking masuk, serta memantau keberangkatan secara menyeluruh.
 
 **Scope:**
 - List booking dengan filter status (waitlist, confirmed, batal, dll)
 - Aksi ubah status booking dari dashboard
+- Fitur Keberangkatan: Tampilan dashboard keberangkatan lintas-paket dengan filter cascading (tahun, bulan, paket, status)
+
+**Definition of Done:**
+- [x] Endpoint backend `/api/departures` mendukung agregasi data keberangkatan (sisa kuota, jumlah jamaah, status)
+- [x] Halaman dashboard `departures` menampilkan tabel keberangkatan secara agregat
+- [x] Filter cascading (tahun -> bulan -> paket -> status) berjalan di sisi client tanpa request berlebih ke backend
+- [x] E2E Suite `departures.e2e-spec.ts` berjalan sukses mencakup isolasi tenant dan kalkulasi kuota
 
 ---
 

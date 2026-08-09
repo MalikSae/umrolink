@@ -17,6 +17,8 @@
 9. **Bukti verifikasi WAJIB ditempel langsung di chat, apa adanya.** Output test/build/curl: teks mentah tertempel, bukan "bisa dilihat di rekam jejak sistem" atau "jalankan sendiri untuk melihat hasilnya". Kalau ada tool yang gagal mengambil bukti, laporkan kegagalannya secara eksplisit — jangan diam-diam diganti klaim prosa tanpa bukti.
 10. **Dilarang kata "dll" atau "dan lainnya" di daftar disclosure file (§0.6).** Setiap file yang tersentuh harus disebut namanya satu per satu, tanpa kecuali — kalau daftarnya panjang, itu tidak apa-apa, tapi tidak boleh disingkat.
 11. **Dilarang memakai `browser_subagent` untuk screenshot verifikasi.** Terbukti tidak reliable (timeout CDP, screenshot tersimpan sebagai path lokal yang tidak bisa dibuka user) dan boros token. Verifikasi visual dilakukan user secara manual dari instruksi yang diberikan terpisah — Antigravity fokus ke bukti berbasis teks (test output, curl, query database, isi file).
+12. **Dilarang mengerjakan bagian/scope di luar yang diminta dalam prompt saat itu, walau terasa efisien untuk "sekalian".** Kalau Antigravity terlanjur mengerjakan sesuatu di luar scope (termasuk "mencuri start" bagian berikutnya), itu WAJIB dilaporkan eksplisit di ringkasan progress SAAT ITU JUGA — bukan disembunyikan sampai ketahuan lewat investigasi git. Pelanggaran ini setingkat pelanggaran isolasi tenant — sama-sama merusak kepercayaan terhadap SELURUH laporan yang pernah diberikan sebelumnya, bukan cuma laporan yang bersangkutan.
+13. **Perubahan ke komponen shared di `packages/ui` (dipakai banyak halaman) WAJIB disertai regression check untuk SEMUA halaman yang memakainya** — jalankan ulang test e2e milik fitur-fitur yang terdampak, bukan cuma test milik fitur yang sedang dikerjakan saat itu.
 
 ---
 
@@ -43,6 +45,7 @@ Jangan mengganti, menambah alternatif, atau "upgrade diam-diam" apapun di bawah 
 | Rich text editor | TipTap (`@tiptap/react` + `@tiptap/starter-kit`) — headless, konsisten dengan filosofi Radix unstyled yang sudah dipakai di project ini |
 | HTML sanitization | `xss` (BUKAN `sanitize-html` — lihat §14 Log Perubahan) — whitelist ketat: `p`, `br`, `strong`, `em`, `ul`, `ol`, `li` saja, tanpa atribut apapun |
 | Searchable combobox | `cmdk` — dipasangkan dengan Radix Popover, konsisten dengan filosofi unstyled primitive yang sudah dipakai untuk Modal/Dropdown/Tooltip |
+| Select dropdown | `@radix-ui/react-select` — custom-styled di atas primitive, komponen `Select` di `packages/ui`. Menggantikan elemen `<select>` native di seluruh dashboard |
 | Database | MySQL 8 |
 | File storage | **VPS local filesystem** (bukan Cloudflare R2 — lihat §14 Log Perubahan untuk alasan). Gambar WAJIB auto-compress + convert ke WebP sebelum disimpan, pakai `sharp`. Disimpan di `apps/api/storage/uploads/`, diserve lewat NestJS static route di `/api/uploads/*` |
 | Cache / Queue | Redis + BullMQ |
@@ -86,6 +89,7 @@ Ini bagian paling sering jadi sumber bug fatal (data satu tenant bocor ke tenant
 5. **Definition of Done untuk fitur apapun yang menyentuh data tenant:** ada test otomatis yang membuktikan user tenant A tidak bisa membaca/mengubah data tenant B — bukan cukup "sudah dicoba manual sekali".
 6. Login/auth guard wajib menolak jika `tenantId` di token/session pengguna tidak cocok dengan tenant yang teresolusi dari domain saat itu.
 7. **Catatan untuk Sprint 13 (hardening):** resolusi tenant memprioritaskan header `x-forwarded-host` (fallback ke `Host`) — ini benar untuk kebutuhan internal fetch server-side Next.js→NestJS, TAPI sebelum production harus dipastikan Caddy tidak meneruskan `x-forwarded-host` mentah dari client eksternal apa adanya (harus di-strip/di-override di layer proxy), supaya tidak bisa dipakai orang luar untuk memalsukan tenant context langsung ke API.
+8. **Untuk model tenant-scoped, WAJIB pakai `findFirst`, JANGAN `findUnique`.** Extension otomatis menyuntik `tenantId` ke `where` clause — `findUnique` Prisma cuma menerima kombinasi field yang benar-benar terdaftar sebagai constraint unik di schema, jadi begitu `tenantId` disisipkan, query jadi invalid dan gagal di runtime (ditemukan Sprint 8 di `packageDeparture.findUnique`). `findFirst` tidak punya batasan ini. Pengecualian: query lewat `RawPrismaService` (bukan tenant-scoped, misal lookup `Tenant` sendiri) boleh tetap pakai `findUnique`.
 
 ---
 
@@ -103,7 +107,7 @@ Ini bagian paling sering jadi sumber bug fatal (data satu tenant bocor ke tenant
 - Brand color tenant (primary/secondary/accent) di-inject sebagai CSS variable di layout web publik, fallback ke default Umrolink kalau tenant belum set. **Ini satu-satunya pengecualian yang sah** untuk styling dinamis di luar token statis.
 - Warna neutral, semantic, dan status TETAP FIXED di semua tempat termasuk web publik tenant — tidak ikut dikustomisasi.
 - **Dilarang memakai inline style (`style={{}}`)** kecuali untuk kasus brand color injection di atas.
-- **Dilarang memakai arbitrary value Tailwind** (`w-[123px]`, `text-[15px]`, `bg-[#fff]`, `p-[7px]`, dst) di luar skala yang sudah ada di `tailwind.config`. Kalau nilai yang dibutuhkan memang belum ada di skala, tambahkan sebagai token baru di config (bukan tempel langsung di komponen) — dan kalau itu berarti keputusan skala baru, tanyakan ke user dulu.
+- **Dilarang memakai arbitrary value Tailwind** (`w-[123px]`, `text-[15px]`, `bg-[#fff]`, `p-[7px]`, dst) di luar skala yang sudah ada di `tailwind.config`. Kalau nilai yang dibutuhkan memang belum ada di skala, tambahkan sebagai token baru di config (bukan tempel langsung di komponen) — dan kalau itu berarti keputusan skala baru, tanyakan ke user dulu. **Pengecualian sah kedua** (selain brand color injection §5.2): rujukan ke CSS variable yang di-set otomatis oleh Radix primitive untuk positioning (contoh: `w-[var(--radix-select-trigger-width)]`, `h-[var(--radix-select-trigger-height)]`) — ini bukan angka arbitrary, tapi variable dinamis dari library, boleh dipakai apa adanya untuk komponen berbasis Radix (Select, Popover, dst).
 - Styling apapun (kombinasi className, pattern spacing, dll) yang dipakai lebih dari satu tempat **wajib** jadi bagian dari komponen di `packages/ui` (lihat §7) — bukan diulang manual di tiap halaman.
 - **Definition of Done untuk review kode:** ditemukan hex code, inline style, atau arbitrary value Tailwind di luar pengecualian di atas → otomatis dikembalikan untuk revisi, tidak dianggap selesai walau secara fungsional sudah jalan.
 
@@ -164,12 +168,14 @@ Token warna teks tetap merujuk `color_system.md` Bagian 11 (tidak berubah) — t
 - Setup database awal (create database `umrolink_dev` & `umrolink_test`) pakai `scripts/setup-db.js`, didaftarkan sebagai `pnpm run setup:db` — didokumentasikan di README untuk onboarding developer baru.
 - Migration ke test database dijalankan otomatis sebelum test run (`prisma migrate reset` khusus ke test DB), tidak pernah menyentuh DB development atau production.
 - Setiap fitur multi-tenant baru wajib punya test isolasi tenant (lihat §3.5).
+- **Tiap file e2e spec yang bikin tenant fixture sendiri WAJIB pakai subdomain unik berprefiks nama file test-nya** (contoh: `commtenanta`/`commtenantb` untuk `commission.e2e-spec.ts`, bukan `tenanta`/`tenantb` generik yang dipakai berulang di banyak file) — Jest menjalankan file test paralel by default, subdomain yang sama dipakai dua file bisa saling tabrakan cleanup/insert dan bikin test flaky (ditemukan Sprint 8).
 
 ---
 
 ## 11. Git & Workflow
 
 - **Antigravity TIDAK PERNAH melakukan merge ke branch `main`.** Semua pekerjaan ada di feature branch (`feature/nama-fitur` atau `sprint-N/nama-fitur`), lalu buka PR. Merge ke `main` hanya dilakukan user secara manual setelah verifikasi selesai.
+- **Commit WAJIB dilakukan secara rutin di sepanjang pengerjaan** (bukan menumpuk seluruh perubahan tanpa commit sampai akhir sesi) — minimal satu commit per BAGIAN yang selesai dalam satu prompt, bukan satu commit raksasa di akhir. Kalau branch kerja saat ini ternyata belum punya commit sama sekali (`git log` kosong), STOP dan laporkan ke user dulu sebelum lanjut kerja apapun — jangan biarkan pekerjaan menumpuk tanpa histori.
 - Commit message jelas dan deskriptif — bukan "fix", "update", "wip".
 - Sebelum melapor sebuah sprint/task selesai, sertakan checklist: apa yang dikerjakan, bagaimana cara user mem-verifikasi manual, dan test otomatis apa yang sudah ditambahkan.
 
@@ -201,6 +207,7 @@ Urutan eskalasi ketika menemui situasi yang tidak tercakup dokumen ini:
 | 2026-08-04 | Ditambahkan §6 (Responsive Design & Typography Scale) — breakpoint, perilaku sidebar/tabel di mobile, dan skala ukuran font | Sprint 3: dashboard yang dibangun (sidebar, tabel paket) ternyata tidak responsive sama sekali di viewport mobile (sidebar full-width, teks kepotong). Belum pernah ada aturan eksplisit soal ini — `color_system.md` Bagian 11 cuma mengatur warna teks, bukan ukuran/scaling. |
 | 2026-08-04 | File storage diganti dari **Cloudflare R2** ke **VPS local filesystem** (§1, §9) | Sprint 3 (perluasan): kredensial R2 belum disiapkan saat fitur featured image paket dibutuhkan. Diputuskan pindah ke local storage dengan auto-compress + convert WebP (`sharp`) sebagai solusi langsung pakai, bukan mock/placeholder. Trade-off yang disadari: tidak ada CDN bawaan, disk VPS perlu dipantau manual. Bisa dievaluasi ulang ke R2 di Sprint 12 kalau diperlukan. |
 | 2026-08-05 | `xss` dikunci sebagai library sanitasi HTML resmi (bukan `sanitize-html`) | Sprint 4: `sanitize-html` awalnya disetujui tapi dependency-nya (`htmlparser2` v12+) pure-ESM, bentrok dengan Jest yang default CommonJS dan tidak transform `node_modules` — error "Cannot use import statement outside a module". Sempat dicoba `esModuleInterop` (sudah aktif dari scaffold NestJS, tidak menyelesaikan masalah ini karena akar masalahnya beda: interop TS vs transform Jest). Diputuskan tidak mengutak-atik konfigurasi transform Jest secara luas demi satu library — `xss` dipakai sebagai gantinya dengan whitelist tag yang setara ketatnya. |
+| 2026-08-08 | `@radix-ui/react-select` dikunci resmi, ditambahkan §0.12 dan §0.13 | Sprint 9: Antigravity mengaku secara terbuka SENGAJA menyembunyikan pembuatan komponen `Select` + dependency baru + refactor 4 halaman (Manajemen Paket, Manajemen Agen) di luar scope Bagian yang sedang dikerjakan, tanpa disclosure — ketahuan lewat investigasi `git log`, bukan laporan. Komponennya sendiri disetujui secara arsitektur (pola konsisten dengan Modal/Dropdown/Tooltip), TAPI insiden penyembunyiannya dicatat sebagai pelanggaran serius setingkat isolasi tenant. |
 | 2026-08-06 | Konvensi Next.js: `apps/web/src/middleware.ts` → `apps/web/src/proxy.ts` | Sprint 6: Next.js 16 (versi terkunci kita, 16.2.12) mendeprecate file convention `middleware.ts`, diganti `proxy.ts` (export function `proxy`, bukan `middleware`). File lama tetap jalan di production build (ada legacy converter), TAPI TIDAK jalan sama sekali di `pnpm dev` — sempat bikin fitur atribusi referral terlihat "tidak berfungsi" padahal cuma soal penamaan file. Ke depan, SEMUA logic proxy/middleware (proteksi dashboard, tangkap `?ref=`, dst) hidup di satu file `apps/web/src/proxy.ts`. |
 
 ## 15. Versi Ter-resolve (per Sprint 0)

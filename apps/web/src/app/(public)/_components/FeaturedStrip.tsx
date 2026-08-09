@@ -42,19 +42,23 @@ export function FeaturedStrip({ packages }: FeaturedStripProps) {
         <h2 className="text-xl font-bold">Pilihan Unggulan</h2>
       </div>
       
-      <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 px-4 pb-4">
+      <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 px-4 pb-4 scroll-pl-4">
         {packages.map((pkg) => (
           <Link
             key={pkg.id}
             href={`/paket/${pkg.slug}`}
-            className="w-[280px] shrink-0 snap-center bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden block"
+            className="w-[calc(45%-0.5rem)] shrink-0 snap-start bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden block"
           >
-            <div className="aspect-[4/3] w-full bg-neutral-200 relative">
+            <div className="aspect-square w-full bg-slate-100 relative">
               {pkg.featuredImage ? (
-                <img src={pkg.featuredImage} alt={pkg.name} className="w-full h-full object-cover" />
+                <img
+                  src={pkg.featuredImage}
+                  alt={pkg.name}
+                  className="object-cover w-full h-full"
+                />
               ) : (
-                <div className="w-full h-full bg-tenant-primary/10 flex items-center justify-center">
-                  <i className="ti ti-photo text-4xl text-tenant-primary/30"></i>
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
+                  <i className="ti ti-kaaba text-4xl opacity-50"></i>
                 </div>
               )}
               <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">

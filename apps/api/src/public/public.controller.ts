@@ -25,8 +25,13 @@ export class PublicController {
   }
 
   @Get('packages')
-  getPackages(@Query('month') month?: string, @Query('featured') featured?: string) {
-    return this.publicService.getPackages(month, featured === 'true');
+  getPackages(
+    @Query('month') month?: string, 
+    @Query('featured') featured?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.publicService.getPackages(month, featured === 'true', page, limit);
   }
 
   @Get('packages/:slug')

@@ -38,24 +38,16 @@ export default async function PublicHomePage() {
   ]);
 
   return (
-    <div className="w-full pb-20">
-      <BannerCarousel banners={banners || []} />
-      
-      <div className="px-4 py-8">
-        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Temukan Paket Umrah Terbaik
-        </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Perjalanan ibadah Anda yang nyaman dan berkesan dimulai dari sini.
-        </p>
-      </div>
-
-      <div className="px-4 mb-8">
-        <div className="w-full bg-neutral-100 rounded-full flex items-center px-4 py-3 text-neutral-400">
-          <i className="ti ti-search text-xl mr-2"></i>
-          <span className="text-sm">Cari paket umrah... (Segera Hadir)</span>
+    <div className="w-full pt-4">
+      <div className="px-4 mb-6">
+        <div className="w-full bg-slate-50 rounded-2xl flex items-center px-4 py-3 text-slate-400 border border-slate-100 shadow-sm">
+          <i className="ti ti-search text-xl mr-3 text-slate-500"></i>
+          <span className="text-sm flex-grow text-slate-500 font-medium">Cari paket umrah...</span>
+          <i className="ti ti-adjustments-horizontal text-xl text-slate-600"></i>
         </div>
       </div>
+
+      <BannerCarousel banners={banners || []} />
 
       <FeaturedStrip packages={featuredPackages || []} />
 
