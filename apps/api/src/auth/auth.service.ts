@@ -48,7 +48,28 @@ export class AuthService {
     }
 
     if (!tenantId) {
-      // Create handoff token for super_admin or travel_admin
+      if (user.role === 'super_admin') {
+        const payload = {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          tenantId: user.tenantId,
+        };
+        const secret = process.env.JWT_SECRET || 'fallback-secret';
+        const access_token = jwt.sign(payload, secret, { expiresIn: '7d' });
+        return {
+          type: 'jwt',
+          access_token,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            tenantId: user.tenantId,
+          }
+        };
+      }
+      // Create handoff token for travel_admin
       const code = randomBytes(32).toString('hex');
       const token = await this.rawPrisma.authHandoffToken.create({
         data: {

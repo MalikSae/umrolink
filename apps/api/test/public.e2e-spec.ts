@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { RawPrismaService } from '../src/tenancy/raw-prisma.service';
+import { loginAsAdmin } from './helpers/auth-helper';
 
 describe('Public API (e2e)', () => {
   let app: INestApplication;
@@ -131,17 +132,12 @@ describe('Public API (e2e)', () => {
   describe('6. Sanitization of HTML', () => {
     it('sanitizes description on package creation', async () => {
       // Login as admin barokah
-      const loginRes = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .set('Host', 'barokah.umrolink.test')
-        .send({ email: 'admin@barokah.test', password: 'Password123!' });
-      
-      authToken = loginRes.body.access_token;
+      authToken = await loginAsAdmin(app, 'barokah', 'admin@barokah.test', 'Password123!', 'umrolink.test');
 
       const res = await request(app.getHttpServer())
         .post('/api/packages')
         .set('Host', 'barokah.umrolink.test')
-        .set('Authorization', `Bearer ${authToken}`)
+        .set('Cookie', `umrolink_token=${authToken}`)
         .send({
           name: 'Paket XSS Test',
           description: '<p>Halo</p><script>alert(1)</script><strong onclick="evil()">Tebal</strong>',

@@ -99,14 +99,18 @@ describe('Auth & Role (e2e)', () => {
     expect(res.body.user.role).toBe('agent');
   });
 
-  it('8. Regresi: POST login super_admin di root domain -> 201, return handoff_token', async () => {
+  it('8. Regresi: POST login super_admin di root domain -> 201, return access_token langsung', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/auth/login')
       .set('Host', 'umrolink.test')
       .send({ email: 'admin@umrolink.com', password: 'Password123!' })
       .expect(201);
       
-    expect(res.body.type).toBe('handoff');
-    expect(res.body.handoff_token).toBeDefined();
+    expect(res.body.type).toBe('jwt');
+    expect(res.body.access_token).toBeDefined();
+    
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeDefined();
+    expect(cookies[0]).toMatch(/umrolink_token=/);
   });
 });

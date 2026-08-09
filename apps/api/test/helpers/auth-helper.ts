@@ -12,6 +12,5 @@ export async function loginAsAdmin(app: INestApplication, subdomain: string, ema
     .set('Host', `${subdomain}.${rootDomain}`);
     
   const cookie = (redeemRes.headers['set-cookie'] || [])[0] || '';
-  console.log(`loginAsAdmin[${email}]: loginStatus=${loginRes.status}, redeemStatus=${redeemRes.status}, cookieLength=${cookie.length}`);
   return cookie.split(';')[0].replace('umrolink_token=', '');
 }
