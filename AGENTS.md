@@ -19,6 +19,8 @@
 11. **Dilarang memakai `browser_subagent` untuk screenshot verifikasi.** Terbukti tidak reliable (timeout CDP, screenshot tersimpan sebagai path lokal yang tidak bisa dibuka user) dan boros token. Verifikasi visual dilakukan user secara manual dari instruksi yang diberikan terpisah — Antigravity fokus ke bukti berbasis teks (test output, curl, query database, isi file).
 12. **Dilarang mengerjakan bagian/scope di luar yang diminta dalam prompt saat itu, walau terasa efisien untuk "sekalian".** Kalau Antigravity terlanjur mengerjakan sesuatu di luar scope (termasuk "mencuri start" bagian berikutnya), itu WAJIB dilaporkan eksplisit di ringkasan progress SAAT ITU JUGA — bukan disembunyikan sampai ketahuan lewat investigasi git. Pelanggaran ini setingkat pelanggaran isolasi tenant — sama-sama merusak kepercayaan terhadap SELURUH laporan yang pernah diberikan sebelumnya, bukan cuma laporan yang bersangkutan.
 13. **Perubahan ke komponen shared di `packages/ui` (dipakai banyak halaman) WAJIB disertai regression check untuk SEMUA halaman yang memakainya** — jalankan ulang test e2e milik fitur-fitur yang terdampak, bukan cuma test milik fitur yang sedang dikerjakan saat itu.
+14. **`git status` WAJIB dijalankan dan hasilnya WAJIB ditempel di SETIAP laporan progress, tanpa kecuali** — bukan cuma saat diminta. Kalau ada file yang termodifikasi/dihapus/baru di luar scope prompt saat itu, itu WAJIB dilaporkan sebagai temuan terpisah di laporan yang sama — TERMASUK kalau itu hasil instruksi user langsung ke Antigravity di luar sesi ini (lihat catatan di bawah §0 soal ini). Tujuannya transparansi penuh supaya user (lewat Claude) selalu tahu kondisi repo yang sebenarnya, bukan mendeteksi pelanggaran semata.
+15. **User kadang mengarahkan Antigravity secara langsung, di luar prompt yang diberikan lewat Claude.** Kalau ada perubahan tak terduga yang tidak berasal dari prompt Claude, itu BUKAN otomatis berarti pelanggaran — tapi tetap WAJIB dilaporkan jelas (lihat §0.14) supaya Claude bisa memahami konteks penuh sebelum melanjutkan arahan berikutnya.
 
 ---
 
@@ -174,7 +176,7 @@ Token warna teks tetap merujuk `color_system.md` Bagian 11 (tidak berubah) — t
 
 ## 11. Git & Workflow
 
-- **Antigravity TIDAK PERNAH melakukan merge ke branch `main`.** Semua pekerjaan ada di feature branch (`feature/nama-fitur` atau `sprint-N/nama-fitur`), lalu buka PR. Merge ke `main` hanya dilakukan user secara manual setelah verifikasi selesai.
+- **Antigravity TIDAK PERNAH melakukan merge ke branch `main`, DAN TIDAK PERNAH menjalankan `git push` dalam bentuk apapun** (ke branch manapun, termasuk feature branch sendiri) — commit cukup disimpan lokal. Push/backup ke remote, merge, dan semua interaksi dengan `main` sepenuhnya di tangan user. Kalau Antigravity merasa perlu push untuk alasan apapun, STOP dan tanya dulu — jangan dicoba "just in case".
 - **Commit WAJIB dilakukan secara rutin di sepanjang pengerjaan** (bukan menumpuk seluruh perubahan tanpa commit sampai akhir sesi) — minimal satu commit per BAGIAN yang selesai dalam satu prompt, bukan satu commit raksasa di akhir. Kalau branch kerja saat ini ternyata belum punya commit sama sekali (`git log` kosong), STOP dan laporkan ke user dulu sebelum lanjut kerja apapun — jangan biarkan pekerjaan menumpuk tanpa histori.
 - Commit message jelas dan deskriptif — bukan "fix", "update", "wip".
 - Sebelum melapor sebuah sprint/task selesai, sertakan checklist: apa yang dikerjakan, bagaimana cara user mem-verifikasi manual, dan test otomatis apa yang sudah ditambahkan.

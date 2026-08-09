@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { loginAsAdmin } from './helpers/auth-helper';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 
@@ -21,11 +22,7 @@ describe('Package (e2e)', () => {
     const rootD = process.env.TENANT_ROOT_DOMAIN || 'localhost';
 
     // Login travel_admin Barokah
-    const resA = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .set('Host', `barokah.${rootD}`)
-      .send({ email: 'admin@barokah.test', password: 'Password123!' });
-    barokahToken = resA.body?.access_token || '';
+    barokahToken = await loginAsAdmin(app, 'barokah', 'admin@barokah.test', 'Password123!', rootDomain);
 
     // Login agent Barokah
     const resAgent = await request(app.getHttpServer())
@@ -35,11 +32,7 @@ describe('Package (e2e)', () => {
     agentToken = resAgent.body?.access_token || '';
 
     // Login travel_admin Hijaz
-    const resB = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .set('Host', `hijaz.${rootD}`)
-      .send({ email: 'admin@hijaz.test', password: 'Password123!' });
-    hijazToken = resB.body?.access_token || '';
+    hijazToken = await loginAsAdmin(app, 'hijaz', 'admin@hijaz.test', 'Password123!', rootDomain);
   });
 
   afterAll(async () => {

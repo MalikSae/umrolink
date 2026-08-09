@@ -1,3 +1,4 @@
+import { loginAsAdmin } from './helpers/auth-helper';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 const request = require('supertest');
@@ -20,8 +21,10 @@ describe('Commission (e2e)', () => {
   let adminToken: string;
   let adminTokenB: string;
   let agentToken: string;
+  const rootDomain = process.env.TENANT_ROOT_DOMAIN || 'umrolink.test';
 
   beforeAll(async () => {
+    const rootDomain = process.env.TENANT_ROOT_DOMAIN || 'umrolink.test';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -56,10 +59,10 @@ describe('Commission (e2e)', () => {
 
     const passwordHash = await argon2.hash('Password123!');
     const admin = await prisma.user.create({ data: { email: 'admin@commtenanta.umrolink.test', passwordHash, name: 'Admin A', role: 'travel_admin', tenantId: tenantA.id } });
-    adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role, tenantId: admin.tenantId }, process.env.JWT_SECRET || 'secret');
+    adminToken = await loginAsAdmin(app, tenantA.subdomain, admin.email, 'Password123!', rootDomain);
 
     const adminBUser = await prisma.user.create({ data: { email: 'admin@commtenantb.umrolink.test', passwordHash, name: 'Admin B', role: 'travel_admin', tenantId: tenantB.id } });
-    adminTokenB = jwt.sign({ sub: adminBUser.id, email: adminBUser.email, role: adminBUser.role, tenantId: adminBUser.tenantId }, process.env.JWT_SECRET || 'secret');
+    adminTokenB = await loginAsAdmin(app, tenantB.subdomain, adminBUser.email, 'Password123!', rootDomain);
 
     agent = await prisma.user.create({
       data: {

@@ -1,3 +1,4 @@
+import { loginAsAdmin } from './helpers/auth-helper';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 const request = require('supertest');
@@ -21,6 +22,7 @@ describe('Booking (e2e)', () => {
   let agentToken: string;
 
   beforeAll(async () => {
+    const rootDomain = process.env.TENANT_ROOT_DOMAIN || 'umrolink.test';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -77,7 +79,7 @@ describe('Booking (e2e)', () => {
       }
     });
 
-    adminToken = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role, tenantId: admin.tenantId }, process.env.JWT_SECRET || 'secret');
+    adminToken = await loginAsAdmin(app, tenantA.subdomain, admin.email, 'Password123!', rootDomain);
 
     const adminB = await prisma.user.create({
       data: {
@@ -89,7 +91,7 @@ describe('Booking (e2e)', () => {
       }
     });
 
-    adminTokenB = jwt.sign({ sub: adminB.id, email: adminB.email, role: adminB.role, tenantId: adminB.tenantId }, process.env.JWT_SECRET || 'secret');
+    adminTokenB = await loginAsAdmin(app, tenantB.subdomain, adminB.email, 'Password123!', rootDomain);
 
     // Create agent
     agent = await prisma.user.create({

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { loginAsAdmin } from './helpers/auth-helper';
 import { AppModule } from './../src/app.module';
 import { PrismaClient } from '@prisma/client';
 
@@ -32,12 +33,9 @@ describe('Departures (e2e)', () => {
     prisma = new PrismaClient();
 
     // Login travel_admin Barokah
-    const resA = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .set('Host', `barokah.${rootDomain}`)
-      .send({ email: 'admin@barokah.test', password: 'Password123!' });
-    barokahToken = resA.body?.access_token || '';
-    barokahTenantId = resA.body?.tenantId || '';
+    barokahToken = await loginAsAdmin(app, 'barokah', 'admin@barokah.test', 'Password123!', rootDomain);
+    const tb = await prisma.tenant.findUnique({ where: { subdomain: 'barokah' } });
+    barokahTenantId = tb?.id || '';
 
     // Login agent Barokah
     const resAgent = await request(app.getHttpServer())
@@ -47,12 +45,9 @@ describe('Departures (e2e)', () => {
     agentToken = resAgent.body?.access_token || '';
 
     // Login travel_admin Hijaz
-    const resB = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .set('Host', `hijaz.${rootDomain}`)
-      .send({ email: 'admin@hijaz.test', password: 'Password123!' });
-    hijazToken = resB.body?.access_token || '';
-    hijazTenantId = resB.body?.tenantId || '';
+    hijazToken = await loginAsAdmin(app, 'hijaz', 'admin@hijaz.test', 'Password123!', rootDomain);
+    const th = await prisma.tenant.findUnique({ where: { subdomain: 'hijaz' } });
+    hijazTenantId = th?.id || '';
     
     // Fallback if tenantId isn't in login payload
     if (!barokahTenantId) {

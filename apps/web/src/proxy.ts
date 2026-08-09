@@ -26,6 +26,14 @@ export function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
+  // 1.5. Rewrite /login based on host
+  const host = request.headers.get('host') || '';
+  const rootDomain = process.env.TENANT_ROOT_DOMAIN;
+  
+  if (url.pathname === '/login' && host === rootDomain) {
+    return NextResponse.rewrite(new URL('/admin-login', request.url));
+  }
+
   // 2. Dashboard Auth Check
   if (url.pathname.startsWith('/dashboard')) {
     const token = request.cookies.get('umrolink_token');
